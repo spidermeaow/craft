@@ -16,7 +16,7 @@ Craft คือภาษาโปรแกรมแบบ static typing พร�
 
 ## ติดตั้งและเริ่มใช้
 
-สำหรับ Windows x64 ให้ใช้ `Craft-setup.exe` หรือ `craft.exe` จากไฟล์ release ของเวอร์ชันที่ต้องการ แล้วเปิด Terminal ใหม่; ไฟล์ build ใน `dist/` ไม่ถูก commit ลง source repository เพื่อไม่ให้ประวัติ Git มี binary artifacts หากต้องการสร้าง CLI จาก source ให้ดูหัวข้อ [การพัฒนา Craft](#การพัฒนา-craft)
+หากมี GitHub Release ของเวอร์ชันที่ต้องการ ให้ใช้ `Craft-setup.exe` หรือ `craft.exe` จาก release นั้น แล้วเปิด Terminal ใหม่ ส่วน source repository เก็บเฉพาะโค้ด: ไฟล์ build ใน `dist/` ไม่ถูก commit เพื่อไม่ให้ประวัติ Git มี binary artifacts ผู้ที่เริ่มจาก source สามารถสร้าง CLI ด้วยคำสั่งในหัวข้อ [การพัฒนา Craft](#การพัฒนา-craft)
 
 ```powershell
 craft version
