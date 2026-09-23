@@ -16,7 +16,7 @@ Craft คือภาษาโปรแกรมแบบ static typing พร�
 
 ## ติดตั้งและเริ่มใช้
 
-สำหรับ Windows x64 ให้ดาวน์โหลดและติดตั้ง `dist/Craft-setup.exe` แล้วเปิด Terminal ใหม่ หรือใช้ `dist/craft.exe` แบบ portable ได้ทันทีโดยไม่ต้องติดตั้ง Go:
+สำหรับ Windows x64 ให้ใช้ `Craft-setup.exe` หรือ `craft.exe` จากไฟล์ release ของเวอร์ชันที่ต้องการ แล้วเปิด Terminal ใหม่; ไฟล์ build ใน `dist/` ไม่ถูก commit ลง source repository เพื่อไม่ให้ประวัติ Git มี binary artifacts หากต้องการสร้าง CLI จาก source ให้ดูหัวข้อ [การพัฒนา Craft](#การพัฒนา-craft)
 
 ```powershell
 craft version
