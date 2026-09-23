@@ -1,0 +1,138 @@
+func parts(path: String): String[] {
+    return path.split("/")
+}
+
+func score(path: String): Int {
+    var total: Int = 0
+    for part in parts(path) {
+        if !part.startsWith(":") {
+            total += 1
+        }
+    }
+    return total
+}
+
+func validatePath(path: String) {
+    if !path.startsWith("/") || path.contains("?") || path.contains("#") || path.contains("//") {
+        throw Exception("Route path must be an absolute path without query, fragment or empty segments")
+    }
+    var seen: Map<String, Bool> = {}
+    for part in parts(path) {
+        if part.startsWith(":") {
+            let name: String = part.substring(1, part.length)
+            if name.length == 0 || seen.containsKey(name) {
+                throw Exception("Empty or duplicate route parameter")
+            }
+            seen.set(name, true)
+        }
+    }
+}
+
+func overlaps(left: String, right: String): Bool {
+    let a: String[] = parts(left)
+    let b: String[] = parts(right)
+    if a.length != b.length {
+        return false
+    }
+    for i in 0..a.length {
+        if !a[i].startsWith(":") && !b[i].startsWith(":") && a[i] != b[i] {
+            return false
+        }
+    }
+    return true
+}
+
+export func add(app: App, method: String, path: String, handler: Fn<HttpResponse, Request>): App {
+    let allowed: String[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+    if !allowed.contains(method) {
+        throw Exception("Unsupported route method")
+    }
+    validatePath(path)
+    for route in app.routes {
+        if route.method == method && score(route.path) == score(path) && overlaps(route.path, path) {
+            throw Exception("Duplicate or ambiguous route: " + method + " " + path)
+        }
+    }
+    var next: App = app
+    next.routes.append(Route(method: method, path: path, handler: handler))
+    return next
+}
+
+export func group(app: App, prefix: String, routes: Route[]): App {
+    var next: App = app
+    for route in routes {
+        next = add(next, route.method, prefix + route.path, route.handler)
+    }
+    return next
+}
+
+func match(path: String, pattern: String): Map<String, String>? {
+    let values: String[] = parts(path)
+    let segments: String[] = parts(pattern)
+    if values.length != segments.length {
+        return null
+    }
+    var parameters: Map<String, String> = {}
+    for i in 0..segments.length {
+        if segments[i].startsWith(":") {
+            if values[i].length == 0 {
+                return null
+            }
+            parameters.set(segments[i].substring(1, segments[i].length), values[i])
+        } else {
+            if segments[i] != values[i] {
+                return null
+            }
+        }
+    }
+    return parameters
+}
+
+func finish(app: App, request: Request, response: HttpResponse): HttpResponse {
+    var current: HttpResponse = response
+    for hook in app.after.reverse() {
+        current = hook(request, current)
+    }
+    return current
+}
+
+export func dispatch(raw: HttpRequest, app: App): HttpResponse {
+    var request: Request = Request(raw: raw, params: {}, data: {})
+    try {
+        var selected: Route? = null
+        var best: Int = -1
+        var methods: String[] = []
+        for route in app.routes {
+            if let parameters = match(raw.path, route.path) {
+                if !methods.contains(route.method) {
+                    methods.append(route.method)
+                }
+                if route.method == raw.method && score(route.path) > best {
+                    selected = route
+                    best = score(route.path)
+                    request.params = parameters
+                }
+            }
+        }
+        for hook in app.before {
+            let gate: Gate = hook(request)
+            request = gate.request
+            if let response = gate.response {
+                return finish(app, request, response)
+            }
+        }
+        if let route = selected {
+            return finish(app, request, route.handler(request))
+        }
+        if methods.length > 0 {
+            var response: HttpResponse = errorResponse(405, "method_not_allowed", "Method not allowed")
+            response.headers.set("allow", [std.string.join(methods.sorted(), ", ")])
+            return finish(app, request, response)
+        }
+        return finish(app, request, errorResponse(404, "not_found", "Route not found"))
+    } catch error {
+        // A failing after hook is not retried. Internal details stay in server logs.
+        print("API dispatch failed:", error.message)
+        return errorResponse(500, "internal_error", "Internal server error")
+    }
+}

@@ -1,0 +1,105 @@
+func testEcho(request: Request): HttpResponse {
+    return text(200, request.params.require("id"))
+}
+
+func testStatic(request: Request): HttpResponse {
+    return text(200, "static")
+}
+
+func firstBefore(request: Request): Gate {
+    var next: Request = request
+    next.data.set("order", std.json.fromString("A"))
+    return proceed(next)
+}
+
+func secondBefore(request: Request): Gate {
+    var next: Request = request
+    next.data.set("order", std.json.fromString(next.data.require("order").asString() + "B"))
+    return proceed(next)
+}
+
+func orderHandler(request: Request): HttpResponse {
+    return text(200, request.data.require("order").asString())
+}
+
+func firstAfter(request: Request, response: HttpResponse): HttpResponse {
+    return text(response.status, response.body.text() + "a")
+}
+
+func secondAfter(request: Request, response: HttpResponse): HttpResponse {
+    return text(response.status, response.body.text() + "b")
+}
+
+func deny(request: Request): Gate {
+    return stop(request, text(403, "denied"))
+}
+
+func failure(request: Request): HttpResponse {
+    throw Exception("private detail")
+}
+
+test "static routes win and parameters are decoded by transport" {
+    var app: App = create()
+    app = add(app, "GET", "/items/:id", testEcho)
+    app = add(app, "GET", "/items/latest", testStatic)
+    let first: HttpResponse = dispatch(std.http.request("GET", "/items/latest", std.bytes.fromString("")), app)
+    assert first.body.text() == "static"
+    let second: HttpResponse = dispatch(std.http.request("GET", "/items/hello%20world", std.bytes.fromString("")), app)
+    assert second.body.text() == "hello world"
+}
+
+test "before hooks run forward and after hooks run reverse" {
+    var app: App = add(create(), "GET", "/order", orderHandler)
+    app = useBefore(app, firstBefore)
+    app = useBefore(app, secondBefore)
+    app = useAfter(app, firstAfter)
+    app = useAfter(app, secondAfter)
+    let response: HttpResponse = dispatch(std.http.request("GET", "/order", std.bytes.fromString("")), app)
+    assert response.body.text() == "ABba"
+}
+
+test "short circuit avoids handler and still runs after hooks" {
+    var app: App = add(create(), "GET", "/deny", failure)
+    app = useBefore(app, deny)
+    app = useAfter(app, firstAfter)
+    let response: HttpResponse = dispatch(std.http.request("GET", "/deny", std.bytes.fromString("")), app)
+    assert response.status == 403
+    assert response.body.text() == "denieda"
+}
+
+test "not found method not allowed and application error" {
+    let app: App = add(create(), "GET", "/fail", failure)
+    let missing: HttpResponse = dispatch(std.http.request("GET", "/absent", std.bytes.fromString("")), app)
+    assert missing.status == 404
+    let method: HttpResponse = dispatch(std.http.request("POST", "/fail", std.bytes.fromString("")), app)
+    assert method.status == 405
+    assert method.headers.require("allow")[0] == "GET"
+    let failed: HttpResponse = dispatch(std.http.request("GET", "/fail", std.bytes.fromString("")), app)
+    assert failed.status == 500
+    assert !failed.body.text().contains("private detail")
+}
+
+test "ambiguous routes rejected and configuration copied" {
+    let original: App = create()
+    let app: App = add(original, "GET", "/a/:id", testEcho)
+    assert original.routes.length == 0
+    var caught: Bool = false
+    try {
+        add(app, "GET", "/:name/b", testEcho)
+    } catch error {
+        caught = true
+    }
+    assert caught
+}
+
+test "validation and repeated query parameters" {
+    assert requiredString(std.json.parse("{}"), "name", 1, 5).length == 1
+    assert requiredString(std.json.parse("{\"name\":42}"), "name", 1, 5).length == 1
+    assert requiredString(std.json.parse("{\"name\":\"ok\"}"), "name", 1, 5).length == 0
+    assert integerRange(std.json.parse("{\"count\":7}"), "count", 0, 5).length == 1
+    let raw: HttpRequest = std.http.request("GET", "/?q=a&q=b&empty=", std.bytes.fromString(""))
+    assert raw.query.require("q").length == 2
+    assert raw.query.require("empty")[0] == ""
+    let error: HttpResponse = validationResponse([FieldError(field: "name", message: "required")])
+    assert error.status == 422
+}

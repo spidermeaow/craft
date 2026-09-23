@@ -1,0 +1,36 @@
+struct Profile {
+    let name: String
+    var scores: Map<String, Int>
+}
+
+func main() {
+    print("Craft 0.1.2 - Rev.2 feature demo")
+    print("Arguments:", std.env.args())
+    let profile: Profile = Profile(name: "Craft", scores: {"math": 90})
+    var copy: Profile = profile
+    copy.scores.set("math", 95)
+    print("Original:", profile, "Copy:", copy)
+    if let score = copy.scores.get("math") {
+        print("Score:", score)
+    }
+    print("Missing:", copy.scores.get("missing"))
+    let numbers: Int[] = [3, 1, 2]
+    print("Sorted:", numbers.sorted(), "Reversed:", numbers.reverse())
+    print("Unicode slice:", "Hello โลก".substring(6, 9))
+    print("Conversion:", std.convert.toInt("42"), std.string.fixed(12.345, 2))
+    var random: Random = std.math.random(42)
+    print("Seeded random:", random.nextInt(1, 7), random.nextFloat())
+    let date: DateTime = std.time.parse("2024-02-29T00:00:00Z")
+    print("Time:", date.withOffset(420).format())
+    print("Tomorrow:", date.add(std.time.durationMilliseconds(86400000)).format())
+    let data: Map<String, JsonValue> = {
+        "owner": std.json.fromString(profile.name),
+        "largeInt": std.json.fromInt(9007199254740993),
+        "missing": std.json.nullValue()
+    }
+    let encoded: String = std.json.stringify(std.json.fromObject(data))
+    print("JSON:", encoded)
+    print("Exact Int:", std.json.parse(encoded).asObject().require("largeInt").asInt())
+    print("Path:", std.path.join(["data", "account.json"]))
+    print("Run craft test for Rev.2 assertions.")
+}

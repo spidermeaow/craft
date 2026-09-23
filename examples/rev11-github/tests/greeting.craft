@@ -1,0 +1,6 @@
+import greeting "greeting"
+
+test "GitHub library keeps its exported API" {
+    assert greeting.greet(" Craft ") == "Hello, Craft!"
+    assert greeting.isBlank(" \t\n")
+}

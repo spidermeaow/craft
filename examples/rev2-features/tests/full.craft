@@ -1,0 +1,171 @@
+test "Optional unwrap and null comparison" {
+    let value: Int? = 42
+    var found: Int = 0
+    if let number = value {
+        found = number
+    }
+    assert found == 42
+    assert value != null
+    let missing: String? = null
+    assert missing == null
+}
+
+test "Struct and Map preserve deep copies" {
+    let original: Profile = Profile(name: "Craft", scores: {"math": 90})
+    var copy: Profile = original
+    copy.scores.set("math", 100)
+    assert original.scores.require("math") == 90
+    assert copy.scores.require("math") == 100
+}
+
+test "Map order snapshots and missing keys" {
+    var map: Map<String, Int> = {"a": 1, "b": 2}
+    let keys: String[] = map.keys()
+    map.set("a", 3)
+    assert map.remove("b")
+    map.set("c", 4)
+    map.set("b", 5)
+    assert keys.length == 2
+    assert map.keys()[1] == "c"
+    assert map.values()[2] == 5
+    assert !map.containsKey("missing")
+    assert map.get("missing") == null
+    var caught: Bool = false
+    try {
+        map.require("missing")
+    } catch error {
+        caught = true
+    }
+    assert caught
+}
+
+test "Map distinguishes absent key from present null" {
+    let map: Map<String, Int?> = {"present": null}
+    var present: Bool = false
+    if let value = map.get("present") {
+        present = true
+        assert value == null
+    }
+    assert present
+    assert map.get("absent") == null
+}
+
+test "Conversions reject invalid values" {
+    assert std.convert.toInt("-42") == -42
+    assert std.convert.toFloat("1.25e1") == 12.5
+    assert std.convert.toBool("true")
+    assert std.convert.toString(42) == "42"
+    assert std.convert.tryInt(" 1") == null
+    assert std.convert.tryInt("9223372036854775808") == null
+    assert std.convert.tryFloat("NaN") == null
+    assert std.convert.tryFloat("1e999") == null
+    assert std.string.fixed(2.5, 0) == "2"
+    assert std.string.fixed(3.5, 0) == "4"
+}
+
+test "Array utilities are nonmutating" {
+    let values: Int[] = [3, 1, 2]
+    assert values.sorted()[0] == 1
+    assert values.reverse()[0] == 2
+    assert values.slice(1, 3).length == 2
+    assert values[0] == 3
+    assert values.contains(1)
+    assert values.indexOf(9) == null
+    if let index = values.indexOf(2) {
+        assert index == 2
+    } else {
+        assert false
+    }
+    let empty: String[] = []
+    assert empty.sorted().length == 0
+}
+
+test "Unicode substring replacement and joining" {
+    assert "Hello โลก".substring(6, 9) == "โลก"
+    assert "a-a".replace("a", "b") == "b-b"
+    assert std.string.join(["a", "b"], "/") == "a/b"
+    var caught: Bool = false
+    try {
+        "x".substring(0, 2)
+    } catch error {
+        caught = true
+    }
+    assert caught
+}
+
+test "Math rounding domains and seeded Random" {
+    assert std.math.round(-2.5) == -3.0
+    assert std.math.floor(-2.5) == -3.0
+    assert std.math.ceil(-2.5) == -2.0
+    assert std.math.pow(2.0, 3.0) == 8.0
+    var a: Random = std.math.random(42)
+    var b: Random = a
+    for number in 0..100 {
+        let value: Int = a.nextInt(-10, 10)
+        assert value >= -10 && value < 10
+        assert value == b.nextInt(-10, 10)
+    }
+    let fraction: Float = a.nextFloat()
+    assert fraction >= 0.0 && fraction < 1.0
+    var caught: Bool = false
+    try {
+        std.math.pow(-1.0, 0.5)
+    } catch error {
+        caught = true
+    }
+    assert caught
+}
+
+test "DateTime fixed offsets leap dates and Duration" {
+    let date: DateTime = std.time.parse("2024-02-29T00:00:00Z")
+    let next: DateTime = date.add(std.time.durationMilliseconds(86400000))
+    assert next.format() == "2024-03-01T00:00:00Z"
+    assert next.difference(date).milliseconds() == 86400000
+    assert next.subtract(std.time.durationMilliseconds(86400000)).format() == date.format()
+    assert std.time.fromUnixSeconds(0).withOffset(420).format() == "1970-01-01T07:00:00+07:00"
+    assert std.time.fromUnixSeconds(1).unixMilliseconds() == 1000
+}
+
+test "Structured JSON preserves Int64 and all value types" {
+    let object: Map<String, JsonValue> = {
+        "int": std.json.fromInt(9223372036854775807),
+        "float": std.json.fromFloat(1.5),
+        "bool": std.json.fromBool(true),
+        "string": std.json.fromString("โลก"),
+        "array": std.json.fromArray([std.json.nullValue()])
+    }
+    let decoded: Map<String, JsonValue> = std.json.parse(std.json.stringify(std.json.fromObject(object))).asObject()
+    assert decoded.require("int").asInt() == 9223372036854775807
+    assert decoded.require("float").asFloat() == 1.5
+    assert decoded.require("bool").asBool()
+    assert decoded.require("string").asString() == "โลก"
+    assert decoded.require("array").asArray()[0].kind() == "null"
+}
+
+test "JSON malformed duplicate and wrong accessor errors" {
+    var caught: Int = 0
+    try {
+        std.json.parse("{\"a\":1,\"a\":2}")
+    } catch error {
+        caught += 1
+    }
+    try {
+        std.json.parse("[1,]")
+    } catch error {
+        caught += 1
+    }
+    try {
+        std.json.nullValue().asInt()
+    } catch error {
+        caught += 1
+    }
+    assert caught == 3
+}
+
+test "Path helpers compose native paths" {
+    let path: String = std.path.join(["data", "file.json"])
+    assert std.path.fileName(path) == "file.json"
+    assert std.path.extension(path) == ".json"
+    assert std.path.parent(path) == "data"
+    assert !std.path.isAbsolute(path)
+}

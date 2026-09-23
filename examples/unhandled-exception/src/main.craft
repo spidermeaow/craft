@@ -1,0 +1,10 @@
+func main() {
+    process()
+}
+
+func process() {
+    defer {
+        print("cleanup before exit")
+    }
+    fail()
+}

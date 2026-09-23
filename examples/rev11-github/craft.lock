@@ -1,0 +1,23 @@
+{
+  "remotes": [
+    {
+      "repository": "spidermeaow/craft-test",
+      "tag": "v1.0.0",
+      "version": "1.0.0",
+      "commit": "9785e1a1019a02f64c543d564ca38a11d4261a91",
+      "checksum": "21839f8254a44a30dce9b25437f2c0f55c736e23b6c527d2340f5993065df300"
+    }
+  ],
+  "format": 2,
+  "root": "rev11-github@1.0.0",
+  "dependencies": {
+    "greeting": "craft-test@1.0.0"
+  },
+  "packages": [
+    {
+      "id": "craft-test@1.0.0",
+      "source": "github:spidermeaow/craft-test@9785e1a1019a02f64c543d564ca38a11d4261a91",
+      "checksum": "805e91abaa9dafaea0829ee8c4dd5a0576b12485711733d0a64366b551e532e0"
+    }
+  ]
+}

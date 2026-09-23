@@ -1,0 +1,3 @@
+test "basic arithmetic" {
+    assert 2 + 3 == 5
+}

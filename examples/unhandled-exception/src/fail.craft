@@ -1,0 +1,3 @@
+func fail() {
+    throw Exception("deliberate failure for stack trace inspection")
+}

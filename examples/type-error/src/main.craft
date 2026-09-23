@@ -1,0 +1,5 @@
+// Deliberately invalid: craft check must reject this before execution.
+func main() {
+    let age: Int = "twenty"
+    print(age)
+}

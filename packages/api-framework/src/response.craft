@@ -1,0 +1,31 @@
+export func json(status: Int, value: JsonValue): HttpResponse {
+    var response: HttpResponse = std.http.response(status, std.bytes.fromString(std.json.stringify(value)))
+    response.headers.set("content-type", ["application/json; charset=utf-8"])
+    return response
+}
+
+export func text(status: Int, value: String): HttpResponse {
+    var response: HttpResponse = std.http.response(status, std.bytes.fromString(value))
+    response.headers.set("content-type", ["text/plain; charset=utf-8"])
+    return response
+}
+
+export func errorResponse(status: Int, code: String, message: String): HttpResponse {
+    return json(status, std.json.fromObject({
+        "error": std.json.fromObject({
+            "code": std.json.fromString(code),
+            "message": std.json.fromString(message)
+        })
+    }))
+}
+
+export func parseJSON(request: Request): JsonValue {
+    return std.json.parse(request.raw.body.text())
+}
+
+export func queryValues(request: Request, name: String): String[] {
+    if let values = request.raw.query.get(name) {
+        return values
+    }
+    return []
+}

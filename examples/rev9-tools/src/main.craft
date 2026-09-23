@@ -1,0 +1,14 @@
+func main() {
+    let args: String[] = std.env.args()
+    if args.length != 2 {
+        print("craft run -- input.json output.json")
+        return
+    }
+
+    let source: String = std.fs.readText(args[0])
+    let value: JsonValue = std.json.parse(source)
+    let config: Map<String, JsonValue> = value.asObject()
+    let output: String = std.json.stringify(value)
+    std.fs.writeTextAtomic(args[1], output)
+    print("Wrote", std.path.absolute(args[1]), "with", config.keys().length, "keys")
+}

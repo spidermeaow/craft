@@ -1,0 +1,19 @@
+import api "api"
+
+test "application health and middleware" {
+    let response: HttpResponse = api.dispatch(std.http.request("GET", "/health", std.bytes.fromString("")), application())
+    assert response.status == 200
+    assert response.headers.require("x-framework")[0] == "Craft"
+    assert std.json.parse(response.body.text()).asObject().require("language").asString() == "craft"
+}
+
+test "application validation media type and JSON errors" {
+    var request: HttpRequest = std.http.request("POST", "/items", std.bytes.fromString("{}"))
+    assert api.dispatch(request, application()).status == 415
+    request.headers.set("content-type", ["application/json"])
+    assert api.dispatch(request, application()).status == 422
+    request.body = std.bytes.fromString("{")
+    assert api.dispatch(request, application()).status == 400
+    request.body = std.bytes.fromString("{\"name\":\"Craft\"}")
+    assert api.dispatch(request, application()).status == 201
+}

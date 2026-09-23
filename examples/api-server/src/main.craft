@@ -1,0 +1,47 @@
+import api "api"
+
+func metadata(request: api.Request): api.Gate {
+    var next: api.Request = request
+    next.data.set("source", std.json.fromString("craft"))
+    return api.proceed(next)
+}
+
+func jsonOnly(request: api.Request): api.Gate {
+    if request.raw.method == "POST" {
+        var accepted: Bool = false
+        if let values = request.raw.headers.get("content-type") {
+            if values.length == 1 {
+                accepted = values[0].split(";")[0].trim().lower() == "application/json"
+            }
+        }
+        if !accepted {
+            return api.stop(request, api.errorResponse(415, "unsupported_media_type", "Use application/json"))
+        }
+    }
+    return api.proceed(request)
+}
+
+func markResponse(request: api.Request, response: HttpResponse): HttpResponse {
+    var next: HttpResponse = response
+    next.headers.set("x-framework", ["Craft"])
+    return next
+}
+
+func application(): api.App {
+    var app: api.App = api.create()
+    app = api.add(app, "GET", "/health", health)
+    app = api.add(app, "GET", "/items/:id", item)
+    app = api.add(app, "POST", "/items", createItem)
+    app = api.useBefore(app, metadata)
+    app = api.useBefore(app, jsonOnly)
+    app = api.useAfter(app, markResponse)
+    return app
+}
+
+func main() {
+    var config: HttpConfig = std.http.config("127.0.0.1:8080")
+    if let address = std.env.lookup("CRAFT_API_ADDRESS") {
+        config.address = address
+    }
+    api.serve(config, application())
+}

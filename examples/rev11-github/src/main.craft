@@ -1,0 +1,5 @@
+import greeting "greeting"
+
+func main() {
+    print(greeting.greet("Craft"))
+}

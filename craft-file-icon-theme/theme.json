@@ -1,0 +1,31 @@
+{
+  "name": "Craft Forge",
+  "version": "0.1.0",
+  "displayName": "Craft Forge File Icons",
+  "language": "Craft",
+  "license": "MIT",
+  "iconDirectory": "icons",
+  "colors": {
+    "craftBlue": "#56B4E9",
+    "forgeNavy": "#102A43",
+    "buildGold": "#F2C94C",
+    "testGreen": "#27AE60",
+    "migrationPurple": "#9B51E0",
+    "lockRed": "#EB5757"
+  },
+  "fileAssociations": {
+    "*.craft": "craft",
+    "craft.toml": "config",
+    "craft.lock": "lock",
+    "*_test.craft": "test",
+    "tests/*.craft": "test",
+    "migrations/*.craft": "migration",
+    "build/": "build",
+    "dist/": "build"
+  },
+  "codex": {
+    "sourceOfTruth": "theme.json",
+    "extensionPoint": "fileAssociations",
+    "recommendedNextStep": "Create adapters for VS Code, JetBrains, and Craft CLI output."
+  }
+}

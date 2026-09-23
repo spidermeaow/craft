@@ -1,0 +1,27 @@
+func main() {
+    defer {
+        print("cleanup complete")
+    }
+
+    var numbers: Int[] = [1, 2, 3]
+    numbers.append(4)
+    print("removed:", numbers.remove(0))
+    print("numbers:", numbers)
+    print("sum:", sum(numbers))
+    print("name:", "  Craft  ".trim().upper())
+    print("words:", "safe,clear,small".split(","))
+    print("named arguments:", divide(b: 3, a: 12))
+    print("sqrt:", std.math.sqrt(9.0))
+
+    try {
+        print(divide(10, 0))
+    } catch error {
+        print("caught:", error.message)
+    }
+
+    try {
+        print(numbers[99])
+    } catch error {
+        print("bounds:", error.type, error.code)
+    }
+}

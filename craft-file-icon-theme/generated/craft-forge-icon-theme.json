@@ -1,0 +1,50 @@
+{
+  "iconDefinitions": {
+    "build": {
+      "iconPath": "../icons/build.svg"
+    },
+    "config": {
+      "iconPath": "../icons/config.svg"
+    },
+    "craft": {
+      "iconPath": "../icons/craft.svg"
+    },
+    "lock": {
+      "iconPath": "../icons/lock.svg"
+    },
+    "migration": {
+      "iconPath": "../icons/migration.svg"
+    },
+    "test": {
+      "iconPath": "../icons/test.svg"
+    },
+    "_file": {
+      "iconPath": "../adapter-icons/file.svg"
+    },
+    "_folder": {
+      "iconPath": "../adapter-icons/folder.svg"
+    }
+  },
+  "file": "_file",
+  "folder": "_folder",
+  "folderExpanded": "_folder",
+  "rootFolder": "_folder",
+  "rootFolderExpanded": "_folder",
+  "fileExtensions": {
+    "craft": "craft",
+    "tests/craft": "test",
+    "migrations/craft": "migration"
+  },
+  "fileNames": {
+    "craft.toml": "config",
+    "craft.lock": "lock"
+  },
+  "folderNames": {
+    "build": "build",
+    "dist": "build"
+  },
+  "folderNamesExpanded": {
+    "build": "build",
+    "dist": "build"
+  }
+}

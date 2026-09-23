@@ -1,0 +1,57 @@
+export struct FieldError {
+    let field: String
+    let message: String
+}
+
+export func requiredString(value: JsonValue, field: String, minLength: Int, maxLength: Int): FieldError[] {
+    if minLength < 0 || maxLength < minLength {
+        throw Exception("Invalid validation length range")
+    }
+    if value.kind() != "object" {
+        return [FieldError(field: field, message: "Expected a JSON object")]
+    }
+    if let item = value.asObject().get(field) {
+        if item.kind() != "string" {
+            return [FieldError(field: field, message: "Expected a string")]
+        }
+        let text: String = item.asString()
+        if text.length < minLength || text.length > maxLength {
+            return [FieldError(field: field, message: "String length is outside the allowed range")]
+        }
+        return []
+    }
+    return [FieldError(field: field, message: "Required field is missing")]
+}
+
+export func integerRange(value: JsonValue, field: String, minimum: Int, maximum: Int): FieldError[] {
+    if maximum < minimum {
+        throw Exception("Invalid validation numeric range")
+    }
+    if value.kind() != "object" {
+        return [FieldError(field: field, message: "Expected a JSON object")]
+    }
+    if let item = value.asObject().get(field) {
+        try {
+            let number: Int = item.asInt()
+            if number < minimum || number > maximum {
+                return [FieldError(field: field, message: "Number is outside the allowed range")]
+            }
+            return []
+        } catch error {
+            return [FieldError(field: field, message: "Expected an integer")]
+        }
+    }
+    return [FieldError(field: field, message: "Required field is missing")]
+}
+
+export func validationResponse(errors: FieldError[]): HttpResponse {
+    var fields: JsonValue[] = []
+    for error in errors {
+        fields.append(std.json.fromObject({"field": std.json.fromString(error.field), "message": std.json.fromString(error.message)}))
+    }
+    return json(422, std.json.fromObject({"error": std.json.fromObject({
+        "code": std.json.fromString("validation_failed"),
+        "message": std.json.fromString("Request validation failed"),
+        "fields": std.json.fromArray(fields)
+    })}))
+}

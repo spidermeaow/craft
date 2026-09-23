@@ -1,0 +1,43 @@
+test "sum an array" {
+    assert sum([1, 2, 3]) == 6
+}
+
+test "named arguments" {
+    assert divide(b: 2, a: 10) == 5
+}
+
+test "immutable array is not aliased" {
+    let original: Int[] = [1, 2]
+    var copy: Int[] = original
+    copy[0] = 99
+    copy.append(3)
+    assert original[0] == 1
+    assert original.length == 2
+    assert copy.length == 3
+}
+
+test "catch exception" {
+    var caught: Bool = false
+    try {
+        divide(1, 0)
+    } catch error {
+        caught = error.message == "cannot divide by zero"
+    }
+    assert caught
+}
+
+test "string operations" {
+    assert " Craft ".trim().lower() == "craft"
+    assert "a,b".split(",").length == 2
+}
+
+test "catch array bounds error" {
+    let numbers: Int[] = [1]
+    var caught: Bool = false
+    try {
+        print(numbers[-1])
+    } catch error {
+        caught = error.code == "E3001"
+    }
+    assert caught
+}

@@ -1,0 +1,22 @@
+{
+  "name": "craft-language-support",
+  "displayName": "Craft Language Support",
+  "description": "Craft syntax highlighting, editing helpers, snippets and Craft Dark/Light themes.",
+  "version": "0.2.2",
+  "publisher": "craft-local",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages", "Themes", "Snippets"],
+  "contributes": {
+    "languages": [{ "id": "craft", "aliases": ["Craft", "craft"], "extensions": [".craft"], "configuration": "./language-configuration.json", "icon": {"light": "./icons/craft.png", "dark": "./icons/craft.png"} }],
+    "grammars": [{ "language": "craft", "scopeName": "source.craft", "path": "./syntaxes/craft.tmLanguage.json" }],
+    "themes": [
+      { "label": "Craft Dark", "uiTheme": "vs-dark", "path": "./themes/craft-dark-color-theme.json" },
+      { "label": "Craft Light", "uiTheme": "vs", "path": "./themes/craft-light-color-theme.json" }
+    ],
+    "snippets": [{ "language": "craft", "path": "./snippets/craft.code-snippets" }]
+  },
+  "scripts": { "test": "node --test tests/grammar.test.cjs" },
+  "devDependencies": { "vscode-textmate": "9.2.0", "vscode-oniguruma": "2.0.1" }
+}
+

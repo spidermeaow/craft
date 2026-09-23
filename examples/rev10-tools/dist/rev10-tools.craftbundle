@@ -1,0 +1,27 @@
+{
+  "entry": "main",
+  "modules": [
+    {
+      "id": "rev10-tools@0.1.0",
+      "name": "rev10-tools",
+      "version": "0.1.0",
+      "dependencies": {},
+      "sources": [
+        {
+          "path": "src/main.craft",
+          "text": "func main() {\n    let args: String[] = std.env.args()\n    if args.length != 1 {\n        print(\"Usage: craft run -- output.txt\")\n        return\n    }\n    let port: Int = std.config.intRange(\"PORT\", std.config.defaultValue(std.env.lookup(\"PORT\"), \"8080\"), 1, 65535)\n    let fields: Map\u003cString, String\u003e = {\"operation\": \"write\", \"token\": \"synthetic-secret\"}\n    std.log.write(\"info\", \"Configuration accepted\", fields, [\"token\"])\n    try {\n        std.fs.writeTextAtomic(args[0], \"Craft Rev10\")\n        print(\"Saved; port:\", port)\n    } catch error {\n        std.log.write(\"error\", error.type, fields, [\"token\"])\n        throw error\n    }\n}\n"
+        }
+      ]
+    }
+  ],
+  "format": "craft-source-bundle",
+  "version": 3,
+  "name": "rev10-tools",
+  "language": "0.1.10",
+  "sources": [
+    {
+      "path": "src/main.craft",
+      "text": "func main() {\n    let args: String[] = std.env.args()\n    if args.length != 1 {\n        print(\"Usage: craft run -- output.txt\")\n        return\n    }\n    let port: Int = std.config.intRange(\"PORT\", std.config.defaultValue(std.env.lookup(\"PORT\"), \"8080\"), 1, 65535)\n    let fields: Map\u003cString, String\u003e = {\"operation\": \"write\", \"token\": \"synthetic-secret\"}\n    std.log.write(\"info\", \"Configuration accepted\", fields, [\"token\"])\n    try {\n        std.fs.writeTextAtomic(args[0], \"Craft Rev10\")\n        print(\"Saved; port:\", port)\n    } catch error {\n        std.log.write(\"error\", error.type, fields, [\"token\"])\n        throw error\n    }\n}\n"
+    }
+  ]
+}

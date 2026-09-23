@@ -1,0 +1,41 @@
+// Token gallery — open in Craft Dark, Craft Light and your own theme.
+struct Account {
+    let name: String
+    var balance: Int
+}
+
+func deposit(account: Account, amount: Int): Int {
+    return account.balance + amount
+}
+
+func main() {
+    let บัญชี: Account = Account(name: "โลก", balance: 42)
+    let gift: String = "if // var \n \u0E01"
+    let ifไทย: Float = 1.25e-3
+    let nested: Map<String, Map<String, Int?>> = {"outer": {"inner": null}}
+    let arrays: Int[]? = [1, 2, 3]
+    if let values = arrays {
+        for i in 0..values.length {
+            assert i < 3 && true
+        }
+    }
+    print(deposit(amount: 2, account: บัญชี), gift.trim().upper(), ifไทย)
+}
+
+// Intentionally incomplete editing samples: not a runnable source file.
+let unfinished: String = "if // missing quote
+let nextLine: Int = 7
+call(
+    name: "value"
+)
+// Unsupported words should remain ordinary identifiers:
+enum lambda async await
+
+// Rev.4 contextual keywords and native/function types:
+import api "api"
+export func handler(request: api.Request): HttpResponse {
+    let callback: Fn<HttpResponse, api.Request> = handler
+    let body: Bytes = std.bytes.fromString("hello")
+    let context: Context = std.context.current()
+    return std.http.response(200, body)
+}

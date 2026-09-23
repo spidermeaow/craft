@@ -1,0 +1,64 @@
+func acceptCopy(values: Int[]) {
+    var copy: Int[] = values
+    copy.append(7)
+    assert copy.length == 2
+}
+
+func failTask() {
+    throw Exception("child failed")
+}
+
+test "task join and arguments" {
+    let values: Int[] = [1]
+    let task: Task = std.task.spawn(acceptCopy, values)
+    task.join()
+    task.join()
+    assert task.status() == "completed"
+    assert values.length == 1
+}
+
+test "task failure is catchable" {
+    let task: Task = std.task.spawn(failTask)
+    var caught: Bool = false
+    try {
+        task.join()
+    } catch error {
+        caught = true
+        assert error.message == "child failed"
+    }
+    assert caught
+    assert task.status() == "failed"
+}
+
+test "timer cancellation and handle aliases" {
+    let timer: Timer = std.timer.after(std.time.durationMilliseconds(60000), failTask)
+    let alias: Timer = timer
+    alias.cancel()
+    timer.cancel()
+    var caught: Bool = false
+    try {
+        timer.join()
+    } catch error {
+        caught = true
+        assert error.type == "CancellationError"
+    }
+    assert caught
+    assert alias.status() == "cancelled"
+}
+
+test "zero sleep and invalid timer durations" {
+    std.time.sleep(0)
+    std.time.sleep(std.time.durationMilliseconds(0))
+    var caught: Int = 0
+    try {
+        std.time.sleep(std.time.durationMilliseconds(-1))
+    } catch error {
+        caught += 1
+    }
+    try {
+        std.timer.every(std.time.durationMilliseconds(0), failTask)
+    } catch error {
+        caught += 1
+    }
+    assert caught == 2
+}

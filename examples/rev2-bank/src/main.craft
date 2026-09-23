@@ -1,0 +1,112 @@
+// Amounts are integer minor units (100 = 1 baht). No floating point balances.
+struct Account {
+    let number: String
+    var balanceMinor: Int
+    var history: String[]
+}
+
+func amount(): Int? {
+    std.io.write("Amount in minor units (100 = 1 baht): ")
+    if let text = std.io.readLine() {
+        if let value = std.convert.tryInt(text.trim()) {
+            if value > 0 {
+                return value
+            }
+        }
+        print("Enter a positive whole number within Int range.")
+    }
+    return null
+}
+
+func encode(account: Account): String {
+    var history: JsonValue[] = []
+    for item in account.history {
+        history.append(std.json.fromString(item))
+    }
+    let data: Map<String, JsonValue> = {
+        "number": std.json.fromString(account.number),
+        "balanceMinor": std.json.fromInt(account.balanceMinor),
+        "history": std.json.fromArray(history)
+    }
+    return std.json.stringify(std.json.fromObject(data))
+}
+
+func decode(text: String): Account {
+    let data: Map<String, JsonValue> = std.json.parse(text).asObject()
+    let number: String = data.require("number").asString()
+    let balance: Int = data.require("balanceMinor").asInt()
+    if number == "" || balance < 0 {
+        throw Exception("Invalid saved account")
+    }
+    var history: String[] = []
+    for item in data.require("history").asArray() {
+        history.append(item.asString())
+    }
+    return Account(number: number, balanceMinor: balance, history: history)
+}
+
+func main() {
+    let args: String[] = std.env.args()
+    var path: String = "bank.json"
+    if args.length > 0 {
+        path = args[0]
+    }
+    var account: Account = Account(number: "CRAFT-001", balanceMinor: 0, history: [])
+    // Invalid existing data ends the program before any write can occur.
+    if std.fs.exists(path) {
+        try {
+            account = decode(std.fs.readText(path))
+            print("Loaded", path)
+        } catch error {
+            print("Cannot load account:", error.message)
+            print("Original file preserved. Fix it or choose another path.")
+            return
+        }
+    }
+    print("Craft Bank 0.1.2 - balances in integer minor units")
+    while true {
+        print("1 Balance | 2 Deposit | 3 Withdraw | 4 History | 5 Save | 0 Exit")
+        std.io.write("> ")
+        if let choice = std.io.readLine() {
+            try {
+                if choice.trim() == "0" {
+                    print("Goodbye. Only explicitly saved changes are persisted.")
+                    break
+                } else if choice.trim() == "1" {
+                    print(account.number, "Balance:", account.balanceMinor)
+                } else if choice.trim() == "2" {
+                    if let value = amount() {
+                        // Overflow throws before assignment changes the balance.
+                        account.balanceMinor += value
+                        account.history.append("Deposit " + std.convert.toString(value))
+                        print("Balance:", account.balanceMinor)
+                    }
+                } else if choice.trim() == "3" {
+                    if let value = amount() {
+                        if value > account.balanceMinor {
+                            print("Insufficient balance")
+                        } else {
+                            account.balanceMinor -= value
+                            account.history.append("Withdraw " + std.convert.toString(value))
+                            print("Balance:", account.balanceMinor)
+                        }
+                    }
+                } else if choice.trim() == "4" {
+                    for item in account.history {
+                        print(item)
+                    }
+                } else if choice.trim() == "5" {
+                    std.fs.writeText(path, encode(account))
+                    print("Saved", path)
+                } else {
+                    print("Unknown menu option")
+                }
+            } catch error {
+                print("Operation failed:", error.message)
+            }
+        } else {
+            print("End of input. Unsaved changes were not written.")
+            break
+        }
+    }
+}

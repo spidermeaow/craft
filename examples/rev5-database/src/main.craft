@@ -1,0 +1,33 @@
+// Set CRAFT_DB_DRIVER to mysql, postgres or sqlserver and CRAFT_DB_DSN to its DSN.
+// This example only reads; it creates no tables and changes no data.
+func main() {
+    let driver: String = std.env.get("CRAFT_DB_DRIVER")
+    let dsn: String = std.env.get("CRAFT_DB_DSN")
+    if driver == "" || dsn == "" {
+        throw Exception("Set CRAFT_DB_DRIVER and CRAFT_DB_DSN before running this example")
+    }
+    let db: DbConnection = std.db.connect(driver, dsn, std.db.config())
+    defer {
+        std.db.close(db)
+    }
+    var sql: String = "SELECT DATABASE()"
+    if driver == "postgres" {
+        sql = "SELECT current_database()"
+    }
+    if driver == "sqlserver" {
+        sql = "SELECT DB_NAME()"
+    }
+    let result: DbRows = std.db.query(db, sql, [])
+    print("Connected:", driver, "database:", std.db.asText(result.rows[0][0]))
+    var query: String = "SELECT CAST(? AS CHAR)"
+    if driver == "postgres" {
+        query = "SELECT CAST($1 AS TEXT)"
+    }
+    if driver == "sqlserver" {
+        query = "SELECT CAST(@p1 AS NVARCHAR(100))"
+    }
+    let echo: DbRows = std.db.query(db, query, [std.db.text("Hello from Craft Rev.5")])
+    print(std.db.asText(echo.rows[0][0]))
+    let stats: DbPoolStats = std.db.stats(db)
+    print("Connections in use:", stats.inUse)
+}

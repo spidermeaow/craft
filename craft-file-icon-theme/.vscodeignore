@@ -1,0 +1,9 @@
+scripts/**
+fixtures/**
+*.vsix
+node_modules/**
+.vscodeignore
+generated/**
+adapter-icons/**
+theme.json
+icons/*.svg

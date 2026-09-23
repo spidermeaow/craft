@@ -1,0 +1,15 @@
+{
+  "source": "../theme.json",
+  "adapter": "vscode",
+  "skipped": [
+    {
+      "rule": "*_test.craft",
+      "icon": "test",
+      "reason": "VS Code native file icon associations do not support this glob; use the matching parent-folder rule or the generic extension icon."
+    }
+  ],
+  "notes": [
+    "Parent rules match only the immediate parent name, at any depth.",
+    "Craft Forge is a standalone theme; mappings from the previously selected theme are not merged."
+  ]
+}

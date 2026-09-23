@@ -1,0 +1,16 @@
+{
+  "name": "craft-forge-file-icons",
+  "displayName": "Craft Forge File Icons",
+  "description": "Only the Craft file icon; preserves the selected file icon theme.",
+  "version": "0.2.0",
+  "publisher": "craft-local",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [{"id": "craft", "aliases": ["Craft"], "extensions": [".craft"], "icon": {"light": "./icons/craft.png", "dark": "./icons/craft.png"}}]
+  },
+  "scripts": {
+    "package": "vsce package"
+  }
+}

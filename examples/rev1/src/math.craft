@@ -1,0 +1,14 @@
+func sum(numbers: Int[]): Int {
+    var result: Int = 0
+    for number in numbers {
+        result += number
+    }
+    return result
+}
+
+func divide(a: Int, b: Int): Int {
+    if b == 0 {
+        throw Exception("cannot divide by zero")
+    }
+    return a / b
+}

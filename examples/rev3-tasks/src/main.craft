@@ -1,0 +1,29 @@
+func worker(label: String, delay: Duration) {
+    defer {
+        print("cleanup", label)
+    }
+    std.time.sleep(delay)
+    print("finished", label)
+}
+
+func tick(label: String) {
+    print(label)
+}
+
+func main() {
+    let first: Task = std.task.spawn(worker, "first", std.time.durationMilliseconds(40))
+    let second: Task = std.task.spawn(worker, "second", std.time.durationMilliseconds(10))
+    first.join()
+    second.join()
+    let once: Timer = std.timer.after(std.time.durationMilliseconds(10), tick, "once")
+    once.join()
+    let repeated: Timer = std.timer.every(std.time.durationMilliseconds(20), tick, "tick")
+    std.time.sleep(std.time.durationMilliseconds(90))
+    repeated.cancel()
+    try {
+        repeated.join()
+    } catch error {
+        print(error.type)
+    }
+    print("done", first.status(), second.status(), once.status(), repeated.status())
+}

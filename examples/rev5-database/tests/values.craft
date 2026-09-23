@@ -1,0 +1,20 @@
+test "Rev.5 exact decimal and null" {
+    assert std.db.asDecimal(std.db.decimal("9007199254740993.2500")) == "9007199254740993.2500"
+    assert std.db.isNull(std.db.nullValue())
+}
+
+test "Rev.5 binary value" {
+    let value: DbValue = std.db.bytes(std.bytes.fromArray([0, 255, 128]))
+    assert std.db.asBytes(value).toArray()[1] == 255
+}
+
+test "Rev.5 typed database errors" {
+    var rejected: Bool = false
+    try {
+        std.db.asInt(std.db.nullValue())
+    }
+    catch error {
+        rejected = error.type == "DbTypeError"
+    }
+    assert rejected
+}

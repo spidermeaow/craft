@@ -1,0 +1,33 @@
+// Functions in other src/*.craft files are available project-wide.
+func main() {
+    print("Craft language tour")
+    let name: String = "Craft"
+    let ready: Bool = true
+    let price: Float = 12.5
+    print("Hello " + name, ready, price)
+    print("add:", add(10, 20))
+    print("factorial:", factorial(5))
+
+    var total: Int = 0
+    for i in 0..6 {
+        if i == 2 { continue }
+        if i == 5 { break }
+        total += i
+    }
+    print("total:", total)
+
+    var count: Int = 0
+    while count < 3 {
+        print("count:", count)
+        count += 1
+    }
+
+    if total > 10 {
+        print("large")
+    } else if total == 8 {
+        print("expected")
+    } else {
+        print("small")
+    }
+}
+

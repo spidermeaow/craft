@@ -1,0 +1,5 @@
+test "word count handles blank and mixed whitespace" {
+    assert countWords("") == 0
+    assert countWords("  \t\r\n") == 0
+    assert countWords("hello โลก\r\nCraft\tCLI") == 4
+}

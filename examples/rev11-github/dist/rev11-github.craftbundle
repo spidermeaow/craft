@@ -1,0 +1,41 @@
+{
+  "entry": "main",
+  "modules": [
+    {
+      "id": "rev11-github@1.0.0",
+      "name": "rev11-github",
+      "version": "1.0.0",
+      "dependencies": {
+        "greeting": "craft-test@1.0.0"
+      },
+      "sources": [
+        {
+          "path": "src/main.craft",
+          "text": "import greeting \"greeting\"\n\nfunc main() {\n    print(greeting.greet(\"Craft\"))\n}\n"
+        }
+      ]
+    },
+    {
+      "id": "craft-test@1.0.0",
+      "name": "craft-test",
+      "version": "1.0.0",
+      "dependencies": {},
+      "sources": [
+        {
+          "path": "src/greeting.craft",
+          "text": "export func greet(name: String): String {\n    let cleaned: String = name.trim()\n    if cleaned == \"\" {\n        return \"Hello, stranger!\"\n    }\n    return \"Hello, \" + cleaned + \"!\"\n}\n\nexport func isBlank(value: String): Bool {\n    return value.trim() == \"\"\n}\n"
+        }
+      ]
+    }
+  ],
+  "format": "craft-source-bundle",
+  "version": 3,
+  "name": "rev11-github",
+  "language": "0.1.11",
+  "sources": [
+    {
+      "path": "src/main.craft",
+      "text": "import greeting \"greeting\"\n\nfunc main() {\n    print(greeting.greet(\"Craft\"))\n}\n"
+    }
+  ]
+}

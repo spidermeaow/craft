@@ -1,0 +1,19 @@
+// Helpers reconstructed from the assertions; original helper source was absent.
+struct Profile {
+    let name: String
+    var scores: Map<String, Int>
+}
+
+func optionalEcho(value: Int?): Int? {
+    return value
+}
+
+func updatedProfile(value: Profile): Profile {
+    var copy: Profile = value
+    copy.scores.set("math", 100)
+    return copy
+}
+
+func main() {
+    print("Run craft test with CRAFT_REV2_VALUE=ready")
+}

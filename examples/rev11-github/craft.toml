@@ -1,0 +1,7 @@
+name = "rev11-github"
+version = "1.0.0"
+edition = "2026"
+entry = "main"
+
+[dependencies]
+greeting = { github = "spidermeaow/craft-test", tag = "v1.0.0", version = "1.0.0" }

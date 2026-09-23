@@ -1,0 +1,5 @@
+// craft check succeeds; craft run reports a located division-by-zero error.
+func main() {
+    let divisor: Int = 0
+    print(10 / divisor)
+}

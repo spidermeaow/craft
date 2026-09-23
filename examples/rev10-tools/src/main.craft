@@ -1,0 +1,17 @@
+func main() {
+    let args: String[] = std.env.args()
+    if args.length != 1 {
+        print("Usage: craft run -- output.txt")
+        return
+    }
+    let port: Int = std.config.intRange("PORT", std.config.defaultValue(std.env.lookup("PORT"), "8080"), 1, 65535)
+    let fields: Map<String, String> = {"operation": "write", "token": "synthetic-secret"}
+    std.log.write("info", "Configuration accepted", fields, ["token"])
+    try {
+        std.fs.writeTextAtomic(args[0], "Craft Rev10")
+        print("Saved; port:", port)
+    } catch error {
+        std.log.write("error", error.type, fields, ["token"])
+        throw error
+    }
+}

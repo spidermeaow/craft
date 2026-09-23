@@ -1,0 +1,35 @@
+func countWords(text: String): Int {
+    let normalized: String = text.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    var count: Int = 0
+    for part in normalized.split(" ") {
+        if part != "" {
+            count += 1
+        }
+    }
+    return count
+}
+
+func main() {
+    let args: String[] = std.env.args()
+    if args.length != 2 {
+        print("craft run -- words file.txt")
+        print("craft run -- config config.json")
+        print("craft run -- time 2024-02-29T00:00:00Z")
+        return
+    }
+    if args[0] == "words" {
+        print("Words (space/tab/newline separated):", countWords(std.fs.readText(args[1])))
+    } else if args[0] == "config" {
+        let config: Map<String, JsonValue> = std.json.parse(std.fs.readText(args[1])).asObject()
+        for key in config.keys() {
+            print(key, "=", std.json.stringify(config.require(key)))
+        }
+    } else if args[0] == "time" {
+        let date: DateTime = std.time.parse(args[1])
+        print("UTC:", date.withOffset(0).format())
+        print("UTC+07:00:", date.withOffset(420).format())
+        print("Unix seconds:", date.unixSeconds())
+    } else {
+        print("Unknown command:", args[0])
+    }
+}

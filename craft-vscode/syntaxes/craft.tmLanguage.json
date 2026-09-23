@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Craft",
+  "scopeName": "source.craft",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "match": "^\\s*(import)(?=\\s+[A-Za-z_][A-Za-z0-9_]*\\s+\")", "captures": { "1": { "name": "keyword.control.craft" } } },
+    { "match": "\\bexport(?=\\s+(?:func|struct)\\b)", "name": "storage.type.craft" },
+    { "include": "#declarations" },
+    { "name": "meta.declaration.function.craft", "match": "(?<![\\p{L}\\p{M}\\p{N}_])(func)(?![\\p{L}\\p{M}\\p{N}_])\\s+([\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)", "captures": { "1": { "name": "storage.type.function.craft" }, "2": { "name": "entity.name.function.craft" } } },
+    { "name": "meta.declaration.struct.craft", "match": "(?<![\\p{L}\\p{M}\\p{N}_])(struct)(?![\\p{L}\\p{M}\\p{N}_])\\s+([\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)", "captures": { "1": { "name": "storage.type.craft" }, "2": { "name": "entity.name.type.craft" } } },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])(?:func|struct|let|var)(?![\\p{L}\\p{M}\\p{N}_])", "name": "storage.type.craft" },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])(?:if|else|while|for|in|return|break|continue|try|catch|throw|defer|test|assert)(?![\\p{L}\\p{M}\\p{N}_])", "name": "keyword.control.craft" },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])(?:true|false|null)(?![\\p{L}\\p{M}\\p{N}_])", "name": "constant.language.craft" },
+    { "include": "#types" },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])std(?:\\.[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)?(?=\\s*\\.)", "name": "support.namespace.craft" },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?(?![\\p{L}\\p{M}\\p{N}_])", "name": "constant.numeric.craft" },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*(?=\\s*\\()", "name": "entity.name.function.craft" },
+    { "match": "(?<![\\p{L}\\p{M}\\p{N}_])[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*(?=\\s*:)", "name": "variable.other.property.craft" },
+    { "match": "==|!=|>=|<=|&&|\\|\\||[+*/%=-]=|\\.\\.|[+*/%=!<>?-]", "name": "keyword.operator.craft" },
+    { "match": "[{}()\\[\\].,:;]", "name": "punctuation.craft" },
+    { "match": "[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*", "name": "variable.other.craft" }
+  ],
+  "repository": {
+    "declarations": {
+      "patterns": [
+        {
+          "begin": "(?<![\\p{L}\\p{M}\\p{N}_])(func)(?![\\p{L}\\p{M}\\p{N}_])\\s+([\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)\\s*(\\()",
+          "beginCaptures": { "1": { "name": "storage.type.function.craft" }, "2": { "name": "entity.name.function.craft" }, "3": { "name": "punctuation.craft" } },
+          "end": "(?=\\{)",
+          "patterns": [
+            { "include": "#comments" },
+            { "include": "#strings" },
+            { "match": "[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*(?=\\s*:)", "name": "variable.parameter.craft" },
+            { "include": "#types" },
+            { "match": "[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*", "name": "entity.name.type.craft" },
+            { "match": "[()\\[\\]<>?,:]", "name": "punctuation.craft" }
+          ]
+        },
+        {
+          "begin": "(?<![\\p{L}\\p{M}\\p{N}_])(let|var)(?![\\p{L}\\p{M}\\p{N}_])\\s+([\\p{L}_][\\p{L}\\p{M}\\p{N}_]*)\\s*(:)",
+          "beginCaptures": { "1": { "name": "storage.type.craft" }, "2": { "name": "variable.other.craft" }, "3": { "name": "punctuation.craft" } },
+          "end": "(?=[=;}])|$",
+          "patterns": [
+            { "include": "#comments" },
+            { "include": "#types" },
+            { "match": "[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*", "name": "entity.name.type.craft" },
+            { "match": "[\\[\\]<>?,]", "name": "punctuation.craft" }
+          ]
+        }
+      ]
+    },
+    "comments": { "begin": "//", "end": "$", "name": "comment.line.double-slash.craft" },
+    "strings": {
+      "begin": "\"", "end": "\"|$", "name": "string.quoted.double.craft",
+      "patterns": [
+        { "match": "\\\\(?:[abfnrtv\\\\\"]|[0-7]{3}|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})", "name": "constant.character.escape.craft" },
+        { "match": "\\\\.", "name": "invalid.illegal.escape.craft" }
+      ]
+    },
+    "types": { "match": "(?<![\\p{L}\\p{M}\\p{N}_])(?:Int|Float|Bool|String|Void|Exception|Map|Fn|JsonValue|DateTime|Duration|Random|Task|Timer|Bytes|Context|HttpRequest|HttpResponse|HttpConfig|DbConnection|DbTransaction|DbValue|DbConfig|DbResult|DbRows|DbPoolStats)(?![\\p{L}\\p{M}\\p{N}_])", "name": "support.type.craft" }
+  }
+}
+

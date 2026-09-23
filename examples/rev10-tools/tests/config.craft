@@ -1,0 +1,11 @@
+test "configuration defaults and range" {
+    assert std.config.defaultValue(null, "8080") == "8080"
+    assert std.config.intRange("port", "8080", 1, 65535) == 8080
+    assert std.config.bool("enabled", "true")
+    var rejected: Bool = false
+    try { std.config.intRange("port", "bad", 1, 65535) } catch error {
+        assert error.type == "ConfigError"
+        rejected = true
+    }
+    assert rejected
+}

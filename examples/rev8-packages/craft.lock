@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "root": "rev8-packages@0.1.0",
+  "dependencies": {
+    "greeting": "greeting@1.0.0"
+  },
+  "packages": [
+    {
+      "id": "greeting@1.0.0",
+      "source": "packages/greeting",
+      "checksum": "a42c5d3128c026a2e5c65ffe8f3d2ae2ead75ac7cdc9cb22583e0b5e879df6eb"
+    }
+  ]
+}

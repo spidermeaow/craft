@@ -1,0 +1,116 @@
+// A test-database example, using std.http and std.db without a framework.
+struct ServerState {
+    let db: DbConnection
+    let driver: String
+    let table: String
+}
+
+func reply(status: Int, body: String): HttpResponse {
+    var response: HttpResponse = std.http.response(status, std.bytes.fromString(body))
+    response.headers.set("content-type", ["text/plain; charset=utf-8"])
+    return response
+}
+
+func placeholder(driver: String, index: Int): String {
+    if driver == "postgres" { return "$" + std.convert.toString(index) }
+    if driver == "sqlserver" { return "@p" + std.convert.toString(index) }
+    return "?"
+}
+
+func validIdentifier(value: String): Bool {
+    if value.length == 0 || value.length > 60 { return false }
+    for part in value.split("") {
+        if !"abcdefghijklmnopqrstuvwxyz0123456789_".contains(part) { return false }
+    }
+    return true
+}
+
+func route(request: HttpRequest, state: ServerState): HttpResponse {
+    if request.path == "/health" && request.method == "GET" { return reply(200, "ok") }
+    if request.path == "/ready" && request.method == "GET" {
+        try { std.db.ping(state.db) } catch error { return reply(503, "database unavailable") }
+        return reply(200, "ready")
+    }
+    let parts: String[] = request.path.split("/")
+    var id: String = ""
+    if request.path == "/items" && request.method == "POST" {
+        if let values = request.query.get("id") {
+            if values.length == 1 { id = values[0] }
+        }
+    } else {
+        if parts.length != 3 || parts[1] != "items" { return reply(404, "not found") }
+        id = parts[2]
+    }
+    if !validIdentifier(id) { return reply(400, "use an id of 1..60 lowercase letters, digits or underscores") }
+    let first: String = placeholder(state.driver, 1)
+    if request.method == "GET" {
+        let rows: DbRows = std.db.query(state.db, "SELECT value FROM " + state.table + " WHERE id = " + first, [std.db.text(id)])
+        if rows.rows.length == 0 { return reply(404, "not found") }
+        return reply(200, std.db.asText(rows.rows[0][0]))
+    }
+    if request.method != "POST" && request.method != "PUT" && request.method != "DELETE" { return reply(405, "method not allowed") }
+    if request.method == "POST" && request.path != "/items" { return reply(405, "method not allowed") }
+    if request.body.length() > 1000 { return reply(413, "value exceeds 1000 UTF-8 bytes") }
+    var value: String = ""
+    try { value = request.body.text() } catch error { return reply(400, "body must be UTF-8") }
+    let tx: DbTransaction = std.db.begin(state.db)
+    defer { std.db.rollback(tx) }
+    if request.method == "POST" {
+        std.db.executeTx(tx, "INSERT INTO " + state.table + " (id, value) VALUES (" + first + ", " + placeholder(state.driver, 2) + ")", [std.db.text(id), std.db.text(value)])
+        std.db.commit(tx)
+        return reply(201, id)
+    }
+    if request.method == "PUT" {
+        // Match-count semantics differ across drivers; check existence explicitly.
+        let rows: DbRows = std.db.queryTx(tx, "SELECT id FROM " + state.table + " WHERE id = " + first, [std.db.text(id)])
+        if rows.rows.length == 0 { return reply(404, "not found") }
+        std.db.executeTx(tx, "UPDATE " + state.table + " SET value = " + first + " WHERE id = " + placeholder(state.driver, 2), [std.db.text(value), std.db.text(id)])
+        std.db.commit(tx)
+        return reply(200, "updated")
+    }
+    let result: DbResult = std.db.executeTx(tx, "DELETE FROM " + state.table + " WHERE id = " + first, [std.db.text(id)])
+    std.db.commit(tx)
+    if let count = result.affectedRows { if count == 0 { return reply(404, "not found") } }
+    return reply(204, "")
+}
+
+func dispatch(request: HttpRequest, state: ServerState): HttpResponse {
+    try { return route(request, state) } catch error {
+        if error.type == "DbConstraintError" { return reply(409, "constraint conflict") }
+        if error.type == "DbTimeoutError" { return reply(504, "database timeout") }
+        // Do not return driver messages or source traces to clients.
+        return reply(500, "request failed")
+    }
+}
+
+func main() {
+    let driver: String = std.env.get("CRAFT_DB_DRIVER")
+    let runId: String = std.env.get("CRAFT_DB_RUN_ID")
+    if !validIdentifier(runId) || runId.length > 32 { throw Exception("Set CRAFT_DB_RUN_ID to a unique lowercase run identifier (1..32 characters)") }
+    let table: String = "craft_rev6_" + runId
+    var config: DbConfig = std.db.config()
+    config.maxOpen = 2
+    config.maxIdle = 2
+    let db: DbConnection = std.db.connect(driver, std.env.get("CRAFT_DB_DSN"), config)
+    defer { std.db.close(db) }
+    var identity: String = "SELECT DATABASE()"
+    if driver == "postgres" { identity = "SELECT current_database()" }
+    if driver == "sqlserver" { identity = "SELECT DB_NAME()" }
+    let database: DbRows = std.db.query(db, identity, [])
+    assert std.db.asText(database.rows[0][0]) == "craft_test"
+    var column: String = "VARCHAR(1000)"
+    if driver == "sqlserver" { column = "NVARCHAR(1000)" }
+    var suffix: String = ""
+    if driver == "mysql" { suffix = " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4" }
+    // CREATE must succeed before DROP is registered: never adopt another run's table.
+    std.db.execute(db, "CREATE TABLE " + table + " (id VARCHAR(60) PRIMARY KEY, value " + column + " NOT NULL)" + suffix, [])
+    defer { std.db.execute(db, "DROP TABLE " + table, []) }
+    print("Rev6 fixture:", table)
+    var http: HttpConfig = std.http.config("127.0.0.1:8080")
+    if let address = std.env.lookup("CRAFT_HTTP_ADDRESS") { http.address = address }
+    http.maxConcurrent = 8
+    http.requestTimeoutMs = 3000
+    http.writeTimeoutMs = 5000
+    http.shutdownTimeoutMs = 2000
+    std.http.serve(http, dispatch, ServerState(db: db, driver: driver, table: table))
+}

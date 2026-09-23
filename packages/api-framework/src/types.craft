@@ -1,0 +1,51 @@
+export struct Request {
+    var raw: HttpRequest
+    var params: Map<String, String>
+    var data: Map<String, JsonValue>
+}
+
+export struct Gate {
+    let request: Request
+    let response: HttpResponse?
+}
+
+export struct Route {
+    let method: String
+    let path: String
+    let handler: Fn<HttpResponse, Request>
+}
+
+export struct App {
+    var routes: Route[]
+    var before: Fn<Gate, Request>[]
+    var after: Fn<HttpResponse, Request, HttpResponse>[]
+}
+
+export func create(): App {
+    return App(routes: [], before: [], after: [])
+}
+
+export func useBefore(app: App, hook: Fn<Gate, Request>): App {
+    var next: App = app
+    next.before.append(hook)
+    return next
+}
+
+export func useAfter(app: App, hook: Fn<HttpResponse, Request, HttpResponse>): App {
+    var next: App = app
+    next.after.append(hook)
+    return next
+}
+
+export func proceed(request: Request): Gate {
+    return Gate(request: request, response: null)
+}
+
+export func stop(request: Request, response: HttpResponse): Gate {
+    return Gate(request: request, response: response)
+}
+
+// This function owns the serving lifetime. App is snapshotted by the transport.
+export func serve(config: HttpConfig, app: App) {
+    std.http.serve(config, dispatch, app)
+}

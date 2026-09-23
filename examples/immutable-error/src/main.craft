@@ -1,0 +1,5 @@
+// Deliberately invalid: use var if this value needs to change.
+func main() {
+    let count: Int = 0
+    count += 1
+}

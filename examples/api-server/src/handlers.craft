@@ -1,0 +1,28 @@
+import api "api"
+
+func health(request: api.Request): HttpResponse {
+    return api.json(200, std.json.fromObject({"status": std.json.fromString("ok"), "language": request.data.require("source")}))
+}
+
+func item(request: api.Request): HttpResponse {
+    let id: String = request.params.require("id")
+    if id != "1" {
+        return api.errorResponse(404, "item_not_found", "Item not found")
+    }
+    return api.json(200, std.json.fromObject({"id": std.json.fromString(id), "name": std.json.fromString("Craft example")}))
+}
+
+func createItem(request: api.Request): HttpResponse {
+    var value: JsonValue = std.json.nullValue()
+    try {
+        value = api.parseJSON(request)
+    } catch error {
+        return api.errorResponse(400, "invalid_json", "Body must be valid UTF-8 JSON")
+    }
+    let errors: api.FieldError[] = api.requiredString(value, "name", 1, 80)
+    if errors.length > 0 {
+        return api.validationResponse(errors)
+    }
+    // Stateless demonstration: no persistence is implied.
+    return api.json(201, value)
+}

@@ -1,0 +1,17 @@
+test "account JSON round trip preserves exact Int and history" {
+    let account: Account = Account(number: "CRAFT-001", balanceMinor: 9007199254740993, history: ["Opened"])
+    let loaded: Account = decode(encode(account))
+    assert loaded.number == account.number
+    assert loaded.balanceMinor == account.balanceMinor
+    assert loaded.history[0] == "Opened"
+}
+
+test "invalid saved balance is rejected" {
+    var caught: Bool = false
+    try {
+        decode("{\"number\":\"x\",\"balanceMinor\":-1,\"history\":[]}")
+    } catch error {
+        caught = true
+    }
+    assert caught
+}

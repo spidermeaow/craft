@@ -1,0 +1,4 @@
+name = "rev5-database"
+version = "0.1.0"
+edition = "2026"
+entry = "main"

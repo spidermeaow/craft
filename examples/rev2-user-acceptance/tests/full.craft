@@ -1,0 +1,411 @@
+test "Optional unwrap and null comparison" {
+    let value: Int? = 42
+    var found: Int = 0
+    if let number = value {
+        found = number
+    }
+    assert found == 42
+    assert value != null
+    let missing: String? = null
+    assert missing == null
+    var visitedElse: Bool = false
+    if let text = missing {
+        assert false
+    }
+    else {
+        visitedElse = true
+    }
+    assert visitedElse
+}
+
+test "Optional parameters results and optional arrays" {
+    let present: Int? = optionalEcho(7)
+    let absent: Int? = optionalEcho(null)
+    assert absent == null
+    if let number = present {
+        assert number == 7
+    }
+    else {
+        assert false
+    }
+    let values: Int? [] = [1, null, 3]
+    assert values.length == 3
+    assert values[1] == null
+    let optionalArray: Int[]? = [10, 20]
+    if let array = optionalArray {
+        assert array.length == 2
+        assert array[0] == 10
+    }
+    else {
+        assert false
+    }
+}
+
+test "Struct arguments results and Map preserve deep copies" {
+    let original: Profile = Profile(name: "Craft", scores: {
+            "math": 90
+    })
+    let returned: Profile = updatedProfile(original)
+    assert original.scores.require("math") == 90
+    assert returned.scores.require("math") == 100
+    var copy: Profile = original
+    copy.scores.set("english", 85)
+    assert !original.scores.containsKey("english")
+    assert copy.scores.require("english") == 85
+    assert copy.name == "Craft"
+}
+
+test "Map order snapshots and missing keys" {
+    var map: Map < String, Int > = {
+        "a": 1,
+        "b": 2
+    }
+    let keys: String[] = map.keys()
+    let values: Int[] = map.values()
+    map.set("a", 3)
+    assert map.keys()[0] == "a"
+    assert map.require("a") == 3
+    assert values[0] == 1
+    assert map.remove("b")
+    assert !map.remove("missing")
+    map.set("c", 4)
+    map.set("b", 5)
+    assert keys.length == 2
+    assert map.length == 3
+    assert map.keys()[1] == "c"
+    assert map.values()[2] == 5
+    assert !map.containsKey("missing")
+    assert map.get("missing") == null
+    var caught: Bool = false
+    try {
+        map.require("missing")
+    }
+    catch error {
+        caught = true
+        assert error.code == "E3001"
+    }
+    assert caught
+}
+
+test "Map distinguishes absent key from present null" {
+    let map: Map < String, Int? > = {
+        "present": null
+    }
+    var present: Bool = false
+    if let value = map.get("present") {
+        present = true
+        assert value == null
+    }
+    assert present
+    assert map.get("absent") == null
+}
+
+test "Conversions reject invalid values" {
+    assert std.convert.toInt("-42") == -42
+    assert std.convert.toFloat("1.25e1") == 12.5
+    assert std.convert.toBool("true")
+    assert !std.convert.toBool("false")
+    assert std.convert.toString(42) == "42"
+    assert std.convert.toString(true) == "true"
+    assert std.convert.toString("Craft") == "Craft"
+    assert std.convert.tryInt(" 1") == null
+    assert std.convert.tryInt("1abc") == null
+    assert std.convert.tryInt("9223372036854775808") == null
+    assert std.convert.tryFloat("NaN") == null
+    assert std.convert.tryFloat("Infinity") == null
+    assert std.convert.tryFloat("1e999") == null
+    if let number = std.convert.tryFloat("2.5") {
+        assert number == 2.5
+    }
+    else {
+        assert false
+    }
+    assert std.string.fixed(2.5, 0) == "2"
+    assert std.string.fixed(3.5, 0) == "4"
+    assert std.string.fixed(12.5, 2) == "12.50"
+    var caught: Int = 0
+    try {
+        std.convert.toInt("abc")
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.convert.toBool("True")
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.string.fixed(1.0, 19)
+    }
+    catch error {
+        caught += 1
+    }
+    assert caught == 3
+}
+
+test "Array utilities are nonmutating" {
+    let values: Int[] = [3, 1, 2]
+    assert values.sorted()[0] == 1
+    assert values.reverse()[0] == 2
+    assert values.slice(1, 3).length == 2
+    assert values.slice(1, 1).length == 0
+    assert values[0] == 3
+    assert values.contains(1)
+    assert !values.contains(9)
+    assert values.indexOf(9) == null
+    if let index = values.indexOf(2) {
+        assert index == 2
+    }
+    else {
+        assert false
+    }
+    let empty: String[] = []
+    assert empty.sorted().length == 0
+    let words: String[] = ["c", "a", "b"]
+    assert words.sorted()[0] == "a"
+    let floats: Float[] = [2.5, 1.5]
+    assert floats.sorted()[0] == 1.5
+    var caught: Bool = false
+    try {
+        values.slice(0, 99)
+    }
+    catch error {
+        caught = true
+    }
+    assert caught
+}
+
+test "Unicode substring replacement and joining" {
+    assert "Hello โลก".substring(6, 9) == "โลก"
+    assert "โลก".substring(0, 0) == ""
+    assert "a-a".replace("a", "b") == "b-b"
+    assert std.string.join(["a", "b"], "/") == "a/b"
+    let empty: String[] = []
+    assert std.string.join(empty, ",") == ""
+    var caught: Bool = false
+    try {
+        "x".substring(0, 2)
+    }
+    catch error {
+        caught = true
+    }
+    assert caught
+}
+
+test "Math rounding domains and seeded Random" {
+    assert std.math.round(-2.5) == -3.0
+    assert std.math.floor(-2.5) == -3.0
+    assert std.math.ceil(-2.5) == -2.0
+    assert std.math.pow(2.0, 3.0) == 8.0
+    var a: Random = std.math.random(42)
+    var b: Random = a
+    for number in 0..100 {
+        let value: Int = a.nextInt(-10, 10)
+        assert value >= -10 && value < 10
+        assert value == b.nextInt(-10, 10)
+    }
+    let fraction: Float = a.nextFloat()
+    assert fraction >= 0.0 && fraction < 1.0
+    assert fraction == b.nextFloat()
+    var caught: Int = 0
+    try {
+        std.math.pow(-1.0, 0.5)
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        a.nextInt(5, 5)
+    }
+    catch error {
+        caught += 1
+    }
+    assert caught == 2
+}
+
+test "DateTime fixed offsets leap dates and Duration" {
+    let date: DateTime = std.time.parse("2024-02-29T00:00:00Z")
+    let day: Duration = std.time.durationMilliseconds(86400000)
+    let next: DateTime = date.add(day)
+    assert next.format() == "2024-03-01T00:00:00Z"
+    assert next.difference(date).milliseconds() == 86400000
+    assert date.difference(next).milliseconds() == -86400000
+    assert next.subtract(day).format() == date.format()
+    let epoch: DateTime = std.time.fromUnixSeconds(0)
+    assert epoch.unixSeconds() == 0
+    assert epoch.unixMilliseconds() == 0
+    assert epoch.withOffset(420).format() == "1970-01-01T07:00:00+07:00"
+    assert std.time.fromUnixSeconds(1).unixMilliseconds() == 1000
+    var caught: Int = 0
+    try {
+        std.time.parse("2023-02-29T00:00:00Z")
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        epoch.withOffset(1440)
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.time.durationMilliseconds(9223372036854775807)
+    }
+    catch error {
+        caught += 1
+    }
+    assert caught == 3
+}
+
+test "Structured JSON preserves Int64 and all value types" {
+    let object: Map < String, JsonValue > = {
+        "int": std.json.fromInt(9223372036854775807),
+        "float": std.json.fromFloat(1.5),
+        "bool": std.json.fromBool(true),
+        "string": std.json.fromString("โลก"),
+        "array": std.json.fromArray([std.json.nullValue()])
+    }
+    let encoded: String = std.json.stringify(std.json.fromObject(object))
+    let decoded: Map < String, JsonValue > = std.json.parse(encoded).asObject()
+    assert decoded.require("int").asInt() == 9223372036854775807
+    assert decoded.require("float").asFloat() == 1.5
+    assert decoded.require("bool").asBool()
+    assert decoded.require("string").asString() == "โลก"
+    assert decoded.require("array").asArray()[0].kind() == "null"
+    var changed: Map < String, JsonValue > = decoded
+    changed.set("string", std.json.fromString("Changed"))
+    assert decoded.require("string").asString() == "โลก"
+    assert changed.require("string").asString() == "Changed"
+    let ordered: Map < String, JsonValue > = {
+        "b": std.json.fromInt(2),
+        "a": std.json.fromInt(1)
+    }
+    assert std.json.stringify(std.json.fromObject(ordered)) == "{\"a\":1,\"b\":2}"
+}
+
+test "JSON malformed duplicate and wrong accessor errors" {
+    var caught: Int = 0
+    try {
+        std.json.parse("{\"a\":1,\"a\":2}")
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.json.parse("[1,]")
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.json.nullValue().asInt()
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.json.parse("9223372036854775808").asInt()
+    }
+    catch error {
+        caught += 1
+    }
+    try {
+        std.json.parse("true false")
+    }
+    catch error {
+        caught += 1
+    }
+    assert caught == 5
+}
+
+test "Path helpers compose native paths" {
+    let path: String = std.path.join(["data", "file.json"])
+    assert std.path.fileName(path) == "file.json"
+    assert std.path.extension(path) == ".json"
+    assert std.path.parent(path) == "data"
+    assert !std.path.isAbsolute(path)
+    let nested: String = std.path.join(["data", "nested", "file.txt"])
+    assert std.path.fileName(nested) == "file.txt"
+    assert std.path.extension(nested) == ".txt"
+}
+
+test "Environment lookup returns the configured value" {
+    var found: Bool = false
+    if let value = std.env.lookup("CRAFT_REV2_VALUE") {
+        found = true
+        assert value == "ready"
+    }
+    assert found
+    assert std.env.get("CRAFT_REV2_VALUE") == "ready"
+}
+
+test "Filesystem append copy move listing and overwrite protection" {
+    let folder: String = "craft-rev2-test-data"
+    let source: String = std.path.join([folder, "source.txt"])
+    let copied: String = std.path.join([folder, "copied.txt"])
+    let moved: String = std.path.join([folder, "moved.txt"])
+    if std.fs.exists(source) || std.fs.exists(copied) || std.fs.exists(moved) {
+        throw Exception("Test files already exist. Use a clean test directory.")
+    }
+    std.fs.createDirectory(folder)
+    assert std.fs.isDirectory(folder)
+    defer {
+        if std.fs.exists(source) {
+            std.fs.removeFile(source)
+        }
+        if std.fs.exists(copied) {
+            std.fs.removeFile(copied)
+        }
+        if std.fs.exists(moved) {
+            std.fs.removeFile(moved)
+        }
+    }
+    std.fs.writeText(source, "Hello")
+    std.fs.appendText(source, " โลก")
+    assert std.fs.readText(source) == "Hello โลก"
+    std.fs.copyFile(source, copied)
+    assert std.fs.readText(copied) == "Hello โลก"
+    assert std.fs.exists(source)
+    var copyRejected: Bool = false
+    try {
+        std.fs.copyFile(source, copied)
+    }
+    catch error {
+        copyRejected = true
+    }
+    assert copyRejected
+    assert std.fs.readText(copied) == "Hello โลก"
+    var moveRejected: Bool = false
+    try {
+        std.fs.moveFile(source, copied)
+    }
+    catch error {
+        moveRejected = true
+    }
+    assert moveRejected
+    assert std.fs.exists(source)
+    std.fs.moveFile(copied, moved)
+    assert !std.fs.exists(copied)
+    assert std.fs.exists(moved)
+    assert std.fs.readText(moved) == "Hello โลก"
+    let entries: String[] = std.fs.listDirectory(folder)
+    assert entries.contains("source.txt")
+    assert entries.contains("moved.txt")
+    assert !entries.contains("copied.txt")
+    var directoryRejected: Bool = false
+    try {
+        std.fs.removeFile(folder)
+    }
+    catch error {
+        directoryRejected = true
+    }
+    assert directoryRejected
+    assert std.fs.isDirectory(folder)
+    std.fs.removeFile(source)
+    std.fs.removeFile(moved)
+    assert !std.fs.exists(source)
+    assert !std.fs.exists(moved)
+}
