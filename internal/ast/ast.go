@@ -23,6 +23,9 @@ const (
 	Timer     Type = "Timer"
 	Bytes     Type = "Bytes"
 	Context   Type = "Context"
+	UiWindow  Type = "UiWindow"
+	UiNode    Type = "UiNode"
+	UiDraw    Type = "UiDraw"
 )
 
 func (t Type) IsArray() bool    { return strings.HasSuffix(string(t), "[]") }

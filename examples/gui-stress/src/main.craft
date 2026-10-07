@@ -1,0 +1,105 @@
+func cell(row: Int, col: Int, tick: Int, all: Bool): UiNode {
+    let number: Int = row * 100 + col
+    let id: String = "cell-" + std.convert.toString(number)
+    var label: String = std.convert.toString(number)
+    if all || (row == 0 && col == 0) {
+        label = label + " / " + std.convert.toString(tick)
+    }
+    var children: UiNode[] = []
+    children.append(std.ui.text(id + "-text", label))
+    return std.ui.panel(id, children)
+}
+
+func screen(size: Int, tick: Int, all: Bool, virtual: Bool, first: Int, end: Int): UiNode {
+    var actions: UiNode[] = []
+    actions.append(std.ui.button("one", "Update one cell"))
+    actions.append(std.ui.button("all", "Update all cells"))
+    actions.append(std.ui.button("density", "Grid 8 / 16 / 32"))
+    actions.append(std.ui.button("virtual-mode", "Virtual List 100,000"))
+    actions.append(std.ui.text("status", "Grid " + std.convert.toString(size) + " x " + std.convert.toString(size) + " | revision " + std.convert.toString(tick)))
+    if size == 32 {
+        actions.append(std.ui.text("overflow", "Dense mode: scroll to reach more cells"))
+    }
+    var body: UiNode = std.ui.text("placeholder", "Loading")
+    if virtual {
+        var visible: UiNode[] = []
+        for index in first..end {
+            let id: String = "item-" + std.convert.toString(index)
+            visible.append(std.ui.button(id, "Item " + std.convert.toString(index)))
+        }
+        body = std.ui.virtualList("large-list", 100000, 40, first, visible)
+    } else {
+        var rows: UiNode[] = []
+        for row in 0..size {
+            var cells: UiNode[] = []
+            for col in 0..size {
+                cells.append(cell(row, col, tick, all))
+            }
+            rows.append(std.ui.row("row-" + std.convert.toString(row), cells))
+        }
+        body = std.ui.scrollView("grid-scroll", std.ui.column("matrix", rows))
+    }
+    var root: UiNode[] = []
+    root.append(std.ui.row("toolbar", actions))
+    root.append(body)
+    return std.ui.column("root", root)
+}
+
+func main() {
+    let window: UiWindow = std.ui.openWindow("Craft UI stress", 1400, 900)
+    var size: Int = 8
+    var tick: Int = 0
+    var all: Bool = false
+    var virtual: Bool = false
+    var first: Int = 0
+    var end: Int = 0
+    std.ui.mount(window, screen(size, tick, all, virtual, first, end))
+    print("Renderer: " + std.ui.renderer(window))
+    var running: Bool = true
+    while running {
+        if let event = std.ui.nextEvent(100) {
+            if event.kind == "VisibleRangeChanged" && event.nodeId == "large-list" && virtual {
+                first = event.firstIndex
+                end = event.endIndex
+                std.ui.update(window, screen(size, tick, all, virtual, first, end))
+            }
+            if event.kind == "ButtonPressed" {
+                if event.nodeId == "one" {
+                    tick = tick + 1
+                    all = false
+                    std.ui.update(window, screen(size, tick, all, virtual, first, end))
+                }
+                if event.nodeId == "all" {
+                    tick = tick + 1
+                    all = true
+                    std.ui.update(window, screen(size, tick, all, virtual, first, end))
+                }
+                if event.nodeId == "density" {
+                    if size == 8 {
+                        size = 16
+                    } else if size == 16 {
+                        size = 32
+                    } else if size == 32 {
+                        size = 8
+                    } else {
+                        size = 8
+                    }
+                    tick = tick + 1
+                    all = false
+                    virtual = false
+                    std.ui.update(window, screen(size, tick, all, virtual, first, end))
+                }
+                if event.nodeId == "virtual-mode" {
+                    virtual = true
+                    first = 0
+                    end = 0
+                    std.ui.update(window, screen(size, tick, all, virtual, first, end))
+                }
+            }
+            if event.kind == "CloseRequested" {
+                running = false
+            }
+        }
+    }
+    std.ui.closeWindow(window)
+}

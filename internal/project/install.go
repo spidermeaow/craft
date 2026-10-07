@@ -170,6 +170,16 @@ func installWithTransport(ctx context.Context, start string, o InstallOptions, t
 	if !bytes.Equal(oldLockBytes, latestLock) {
 		return nil, fmt.Errorf("lock changed during install; retry")
 	}
+	lockUnchanged := bytes.Equal(oldLockBytes, data)
+	if lock.Format != 0 {
+		previousGraph, _ := json.Marshal(lock)
+		nextGraph, _ := json.Marshal(next)
+		lockUnchanged = bytes.Equal(previousGraph, nextGraph)
+	}
+	if bytes.Equal(original, updated) && lockUnchanged {
+		messages = append(messages, fmt.Sprintf("Already installed %d dependencies; manifest and lock are unchanged.", len(p.Packages)))
+		return messages, nil
+	}
 	if e = commitInstallation(root, original, updated, data); e != nil {
 		return nil, e
 	}

@@ -66,7 +66,7 @@ func TestCLIEndToEnd(t *testing.T) {
 		b, e := cmd.CombinedOutput()
 		return string(b), e
 	}
-	if out, e := run(temp, "version"); e != nil || !strings.Contains(out, "Craft 0.1.11") {
+	if out, e := run(temp, "version"); e != nil || !strings.Contains(out, "Craft 0.1.25") {
 		t.Fatalf("version: %v %s", e, out)
 	}
 	if out, e := run(temp, "new", "hello"); e != nil {

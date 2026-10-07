@@ -1,5 +1,7 @@
 /dist/
 /build/
+**/dist/
+/craft.exe
 *.tmp
 
 # Machine-local credentials and private configuration

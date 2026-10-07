@@ -53,7 +53,9 @@ func NativeStructs() []*ast.Struct {
 	response.Name = "HttpResponse"
 	config := fields([]string{"address", "maxConcurrent", "maxConnections", "maxBodyBytes", "maxHeaderBytes", "readTimeoutMs", "writeTimeoutMs", "idleTimeoutMs", "requestTimeoutMs", "shutdownTimeoutMs"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int})
 	config.Name = "HttpConfig"
-	return append([]*ast.Struct{request, response, config}, dbStructs()...)
+	uiEvent := fields([]string{"kind", "windowId", "x", "y", "width", "height", "keyCode", "modifiers", "scale", "nodeId", "firstIndex", "endIndex", "text"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Float, ast.String, ast.Int, ast.Int, ast.String})
+	uiEvent.Name = "UiEvent"
+	return append([]*ast.Struct{request, response, config, uiEvent}, dbStructs()...)
 }
 func nativeStruct(name string, values ...any) *rt.Struct {
 	for _, s := range NativeStructs() {

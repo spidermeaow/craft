@@ -1,0 +1,88 @@
+import gui "gui"
+
+func screen(status: String, selected: String, first: Int, last: Int, width: Int): UiNode {
+    var actions: UiNode[] = []
+    actions.append(gui.button("overview", "Overview"))
+    actions.append(gui.button("items", "Items"))
+    let header: UiNode = gui.size(gui.toolbar("header", actions), 0, 48, 0, 0, 0)
+
+    var menu: UiNode[] = []
+    menu.append(gui.text("menu-title", "Navigation"))
+    menu.append(gui.button("nav-one", "Home"))
+    menu.append(gui.button("nav-two", "Library"))
+    menu.append(gui.text("selected", "Selected: " + selected))
+    let sidebar: UiNode = gui.navigation("sidebar", menu)
+
+    var visible: UiNode[] = []
+    for index in first..last {
+        visible.append(gui.button("item-" + std.convert.toString(index), "Item " + std.convert.toString(index)))
+    }
+    var content: UiNode[] = []
+    content.append(gui.heading("heading", "Craft GUI package 0.2.8"))
+    var tiles: UiNode[] = []
+    tiles.append(gui.surfaceCard("tile-docs", [gui.text("tile-docs-text", "Documents: 24")], gui.surfaceColor(), gui.borderColor(), 8))
+    tiles.append(gui.surfaceCard("tile-data", [gui.text("tile-data-text", "Records: 1,248")], gui.surfaceColor(), gui.borderColor(), 8))
+    tiles.append(gui.surfaceCard("tile-charts", [gui.text("tile-charts-text", "Charts: 8")], gui.surfaceColor(), gui.borderColor(), 8))
+    tiles.append(gui.surfaceCard("tile-users", [gui.text("tile-users-text", "Users: 5")], gui.surfaceColor(), gui.borderColor(), 8))
+    content.append(gui.autoGrid("stats", tiles, 180, 4, 12))
+    content.append(gui.textWrap(gui.text("long-description", "This text follows the width allocated to its parent and becomes taller when the window is narrow.")))
+    content.append(gui.field("search", "Search", "", "Type Thai or English"))
+    content.append(gui.text("keyboard-help", "Ctrl+S: Save command  |  F5: Refresh command  |  Ctrl+Z: undo inside Search"))
+    content.append(gui.text("hint", "Scroll through 10,000 virtual rows"))
+    content.append(gui.size(gui.virtualList("list", 10000, 38, first, visible), 0, 0, 0, 220, 1))
+    let work: UiNode = gui.column("work", content)
+    var mainContent: UiNode[] = []
+    mainContent.append(gui.size(work, 0, 0, 0, 300, 1))
+    mainContent.append(gui.size(gui.text("status", status), 0, 32, 0, 0, 0))
+    let page: UiNode = gui.column("page", mainContent)
+    if gui.compact(width, 760) {
+        var stacked: UiNode[] = []
+        stacked.append(header)
+        stacked.append(sidebar)
+        stacked.append(gui.size(page, 0, 0, 0, 300, 1))
+        return gui.column("root", stacked)
+    }
+    return gui.appShell("root", header, sidebar, page, 210)
+}
+
+func main() {
+    let window: UiWindow = gui.openWindow("Craft GUI Package Lab", 1000, 680)
+    var width: Int = gui.viewportWidth(window)
+    var status: String = "Ready; Secondary label " + std.convert.toString(gui.measureTextWidth(window, "Secondary", 16, 600)) + " px"
+    var selected: String = "Home"
+    var first: Int = 0
+    var last: Int = 0
+    gui.mount(window, screen(status, selected, first, last, width))
+    gui.bindShortcut(window, "save", 83, 2)
+    gui.bindShortcut(window, "refresh", 116, 0)
+    print("Renderer: " + gui.renderer(window))
+    var running: Bool = true
+    while running {
+        if let event = gui.nextEvent(100) {
+            if event.kind == "VisibleRangeChanged" && event.nodeId == "list" {
+                first = event.firstIndex
+                last = event.endIndex
+                gui.update(window, screen(status, selected, first, last, width))
+            }
+            if event.kind == "ButtonPressed" {
+                selected = event.nodeId
+                status = "Pressed " + event.nodeId
+                gui.update(window, screen(status, selected, first, last, width))
+            }
+            if event.kind == "TextChanged" {
+                status = "Search: " + event.text
+                gui.update(window, screen(status, selected, first, last, width))
+            }
+            if gui.commandInvoked(event, "save") || gui.commandInvoked(event, "refresh") {
+                status = "Command: " + event.nodeId
+                gui.update(window, screen(status, selected, first, last, width))
+            }
+            if gui.viewportChanged(event) && event.width != width {
+                width = event.width
+                gui.update(window, screen(status, selected, first, last, width))
+            }
+            if event.kind == "CloseRequested" { running = false }
+        }
+    }
+    gui.closeWindow(window)
+}

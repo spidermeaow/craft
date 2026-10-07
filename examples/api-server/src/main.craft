@@ -1,47 +1,48 @@
-import api "api"
-
-func metadata(request: api.Request): api.Gate {
-    var next: api.Request = request
-    next.data.set("source", std.json.fromString("craft"))
-    return api.proceed(next)
+// HTTP runtime example; the higher-level API framework is archived.
+func json(status: Int, value: JsonValue): HttpResponse {
+    var response: HttpResponse = std.http.response(status, std.bytes.fromString(std.json.stringify(value)))
+    response.headers.set("content-type", ["application/json; charset=utf-8"])
+    return response
 }
 
-func jsonOnly(request: api.Request): api.Gate {
-    if request.raw.method == "POST" {
+func errorResponse(status: Int, code: String): HttpResponse {
+    return json(status, std.json.fromObject({"error": std.json.fromString(code)}))
+}
+
+func dispatch(request: HttpRequest, state: Int): HttpResponse {
+    if request.path == "/health" {
+        if request.method != "GET" { return errorResponse(405, "method_not_allowed") }
+        return json(200, std.json.fromObject({"status": std.json.fromString("ok"), "language": std.json.fromString("craft")}))
+    }
+    if request.path == "/items" {
+        if request.method != "POST" { return errorResponse(405, "method_not_allowed") }
         var accepted: Bool = false
-        if let values = request.raw.headers.get("content-type") {
-            if values.length == 1 {
-                accepted = values[0].split(";")[0].trim().lower() == "application/json"
+        if let values = request.headers.get("content-type") {
+            if values.length == 1 { accepted = values[0].split(";")[0].trim().lower() == "application/json" }
+        }
+        if !accepted { return errorResponse(415, "unsupported_media_type") }
+        var value: JsonValue = std.json.nullValue()
+        try { value = std.json.parse(request.body.text()) } catch error { return errorResponse(400, "invalid_json") }
+        var valid: Bool = false
+        if value.kind() == "object" {
+            if let name = value.asObject().get("name") {
+                if name.kind() == "string" { valid = name.asString().length > 0 && name.asString().length <= 80 }
             }
         }
-        if !accepted {
-            return api.stop(request, api.errorResponse(415, "unsupported_media_type", "Use application/json"))
-        }
+        if !valid { return errorResponse(422, "invalid_name") }
+        return json(201, value)
     }
-    return api.proceed(request)
-}
-
-func markResponse(request: api.Request, response: HttpResponse): HttpResponse {
-    var next: HttpResponse = response
-    next.headers.set("x-framework", ["Craft"])
-    return next
-}
-
-func application(): api.App {
-    var app: api.App = api.create()
-    app = api.add(app, "GET", "/health", health)
-    app = api.add(app, "GET", "/items/:id", item)
-    app = api.add(app, "POST", "/items", createItem)
-    app = api.useBefore(app, metadata)
-    app = api.useBefore(app, jsonOnly)
-    app = api.useAfter(app, markResponse)
-    return app
+    let parts: String[] = request.path.split("/")
+    if parts.length == 3 && parts[1] == "items" {
+        if request.method != "GET" { return errorResponse(405, "method_not_allowed") }
+        if parts[2] != "1" { return errorResponse(404, "item_not_found") }
+        return json(200, std.json.fromObject({"id": std.json.fromString("1"), "name": std.json.fromString("Craft example")}))
+    }
+    return errorResponse(404, "not_found")
 }
 
 func main() {
     var config: HttpConfig = std.http.config("127.0.0.1:8080")
-    if let address = std.env.lookup("CRAFT_API_ADDRESS") {
-        config.address = address
-    }
-    api.serve(config, application())
+    if let address = std.env.lookup("CRAFT_API_ADDRESS") { config.address = address }
+    std.http.serve(config, dispatch, 0)
 }

@@ -15,8 +15,8 @@ import (
 	"strings"
 )
 
-const Version = "0.1.11"
-const help = `Craft 0.1.11 — Phase 1 Rev.11
+const Version = "0.1.30"
+const help = `Craft 0.1.30 — CLI and Runtime
 
 Usage:
   craft version                Show toolchain version
@@ -80,7 +80,7 @@ func RunWithInput(ctx context.Context, args []string, cwd string, in io.Reader, 
 		if len(args) != 1 {
 			return usage("usage: craft version")
 		}
-		fmt.Fprintf(out, "Craft %s\nLanguage: Phase 1 Rev.11\nTarget: %s-%s\nCompiler: Go\nExecution: Interpreter\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(out, "Craft %s\nMilestone: Phase 1 Rev.30\nTarget: %s-%s\nCompiler: Go\nExecution: Interpreter\n", Version, runtime.GOOS, runtime.GOARCH)
 		return 0
 	case "new":
 		if len(args) != 2 {
@@ -122,6 +122,8 @@ func RunWithInput(ctx context.Context, args []string, cwd string, in io.Reader, 
 			fmt.Fprintln(out, m)
 		}
 		return 0
+	case "gui":
+		return usage("craft gui init is paused in Rev.21; use std.ui directly")
 	case "init":
 		if len(args) != 1 {
 			return usage("usage: craft init")

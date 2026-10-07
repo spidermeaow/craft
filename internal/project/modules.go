@@ -305,7 +305,7 @@ func loadModuleBundle(b Bundle) (*Project, error) {
 	if b.Entry != "main" && b.Entry != "library" {
 		return nil, fmt.Errorf("invalid bundle entry")
 	}
-	if b.Format != "craft-source-bundle" || (b.Language != "0.1.4" && b.Language != "0.1.5" && b.Language != "0.1.6" && b.Language != "0.1.7" && b.Language != "0.1.10" && b.Language != "0.1.11") || !validName(b.Name) {
+	if b.Format != "craft-source-bundle" || (b.Language != "0.1.4" && b.Language != "0.1.5" && b.Language != "0.1.6" && b.Language != "0.1.7" && b.Language != "0.1.10" && b.Language != "0.1.11" && b.Language != "0.1.13" && b.Language != "0.1.14" && b.Language != "0.1.15" && b.Language != "0.1.16" && b.Language != "0.1.17" && b.Language != "0.1.18" && b.Language != "0.1.19" && b.Language != "0.1.20" && b.Language != "0.1.21" && b.Language != "0.1.22" && b.Language != "0.1.24") || !validName(b.Name) {
 		return nil, fmt.Errorf("unsupported Rev.4 bundle")
 	}
 	if len(b.Modules) == 0 {

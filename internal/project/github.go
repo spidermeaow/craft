@@ -8,8 +8,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -67,33 +69,64 @@ func newGitHubTransport() *githubTransport {
 	}}}
 }
 func (g *githubTransport) get(ctx context.Context, url string, limit int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Craft-package-client/0.1.11")
-	res, err := g.client.Do(req)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
+	for attempt := 0; attempt < 3; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("GitHub request failed (network, redirect or timeout)")
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		if res.StatusCode == 403 || res.StatusCode == 429 {
-			return nil, fmt.Errorf("GitHub access/rate limit: retry later; public repositories only")
+		req.Header.Set("User-Agent", "Craft-package-client/0.1.12")
+		res, err := g.client.Do(req)
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			var netErr net.Error
+			if attempt < 2 && errors.As(err, &netErr) && netErr.Timeout() {
+				if err = waitRetry(ctx, attempt); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			return nil, fmt.Errorf("GitHub request failed (network, redirect or timeout): %w", err)
+		}
+		if res.StatusCode == http.StatusOK {
+			b, readErr := io.ReadAll(io.LimitReader(res.Body, limit+1))
+			res.Body.Close()
+			if readErr != nil {
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
+				return nil, fmt.Errorf("incomplete GitHub response: %w", readErr)
+			}
+			if int64(len(b)) > limit {
+				return nil, fmt.Errorf("GitHub download exceeds limit")
+			}
+			return b, nil
+		}
+		res.Body.Close()
+		if attempt < 2 && (res.StatusCode == http.StatusBadGateway || res.StatusCode == http.StatusServiceUnavailable || res.StatusCode == http.StatusGatewayTimeout) {
+			if err = waitRetry(ctx, attempt); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if res.StatusCode == http.StatusForbidden || res.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("GitHub access/rate limit (HTTP %d): retry later; public repositories only", res.StatusCode)
 		}
 		return nil, fmt.Errorf("GitHub HTTP %d; verify public repository and tag", res.StatusCode)
 	}
-	b, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("incomplete GitHub response")
+	return nil, fmt.Errorf("GitHub request exhausted retries")
+}
+
+func waitRetry(ctx context.Context, attempt int) error {
+	timer := time.NewTimer(time.Duration(1<<attempt) * 200 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
-	if int64(len(b)) > limit {
-		return nil, fmt.Errorf("GitHub download exceeds limit")
-	}
-	return b, nil
 }
 func (g *githubTransport) resolve(ctx context.Context, d GitHubDependency) (string, error) {
 	// Resolve the tag namespace explicitly (a branch may have the same name).
@@ -185,7 +218,7 @@ func (r *remoteResolver) ensure(d GitHubDependency) (string, RemotePin, error) {
 		if _, err := os.Lstat(dir); err == nil {
 			sum, err := treeChecksum(dir)
 			if err != nil || sum != p.Checksum {
-				return "", p, fmt.Errorf("package cache integrity failure for %s; use a fresh CRAFT_PACKAGE_CACHE and restore", d.key())
+				return "", p, fmt.Errorf("package cache integrity failure for %s; set CRAFT_PACKAGE_CACHE to a fresh directory and run craft install online (lock pin is preserved)", d.key())
 			}
 			r.used[d.key()] = p
 			r.checked[d.key()] = dir
@@ -195,12 +228,12 @@ func (r *remoteResolver) ensure(d GitHubDependency) (string, RemotePin, error) {
 		}
 	}
 	if !r.network {
-		return "", p, fmt.Errorf("package %s missing from verified cache/lock; run craft install online", d.key())
+		return "", p, fmt.Errorf("package %s missing from verified cache/lock; run craft install online with the project lock, or populate the cache before --offline", d.key())
 	}
 	if !locked {
 		commit, err := r.transport.resolve(r.ctx, d)
 		if err != nil {
-			return "", p, err
+			return "", p, fmt.Errorf("resolve %s: %w", d.key(), err)
 		}
 		p = RemotePin{GitHubDependency: d, Commit: commit}
 	}
@@ -209,7 +242,7 @@ func (r *remoteResolver) ensure(d GitHubDependency) (string, RemotePin, error) {
 	}
 	b, err := r.transport.archive(r.ctx, d, p.Commit)
 	if err != nil {
-		return "", p, err
+		return "", p, fmt.Errorf("download %s at %s: %w", d.key(), p.Commit, err)
 	}
 	if err = os.MkdirAll(r.cache, 0700); err != nil {
 		return "", p, err
@@ -220,11 +253,11 @@ func (r *remoteResolver) ensure(d GitHubDependency) (string, RemotePin, error) {
 	}
 	defer os.RemoveAll(stage)
 	if err = extractPackage(r.ctx, b, stage); err != nil {
-		return "", p, err
+		return "", p, fmt.Errorf("validate archive for %s: %w", d.key(), err)
 	}
 	sum, err := treeChecksum(stage)
 	if err != nil {
-		return "", p, err
+		return "", p, fmt.Errorf("validate source for %s: %w", d.key(), err)
 	}
 	if locked && sum != p.Checksum {
 		return "", p, fmt.Errorf("download checksum differs from locked source for %s", d.key())

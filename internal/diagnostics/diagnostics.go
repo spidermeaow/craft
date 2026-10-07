@@ -36,7 +36,7 @@ func New(p Position, format string, args ...any) error {
 		code, exit = "E1001", 2
 	case strings.HasPrefix(message, "entry point error"):
 		code, exit = "E4001", 4
-	case strings.HasPrefix(message, "manifest error"):
+	case strings.HasPrefix(message, "manifest error"), strings.HasPrefix(message, "package error"):
 		code, exit = "E4002", 4
 	case strings.HasPrefix(message, "type error"):
 		code, exit = "E2002", 3

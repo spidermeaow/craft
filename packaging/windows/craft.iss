@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.11"
+  #define AppVersion "0.1.30"
 #endif
 
 [Setup]
@@ -24,35 +24,26 @@ UninstallDisplayIcon={app}\craft.exe
 CloseApplications=no
 
 [Files]
-Source: "..\..\roadmap\phase1\output\phase1-rev11-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev10-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev9-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
+Source: "..\..\roadmap\*"; DestDir: "{app}\roadmap"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\dist\craft.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\roadmap\phase1\output\phase1-rev1-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev2-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev3-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev4-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev5-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev6-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev7-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
-Source: "..\..\roadmap\phase1\output\phase1-rev8-status.md"; DestDir: "{app}\roadmap\phase1\output"; Flags: ignoreversion
+Source: "..\..\packages\gui\*"; DestDir: "{app}\packages\gui"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\dist\craft-language-support-0.2.2.vsix"; DestDir: "{app}\editor"; Flags: ignoreversion
 Source: "..\..\craft-vscode\README.md"; DestDir: "{app}\editor"; DestName: "LANGUAGE-SUPPORT.md"; Flags: ignoreversion
 Source: "..\..\dist\craft-forge-file-icons-0.2.0.vsix"; DestDir: "{app}\editor"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\..\craft-file-icon-theme\README.md"; DestDir: "{app}\editor"; Flags: ignoreversion
 Source: "..\..\examples\*"; DestDir: "{app}\examples"; Excludes: ".env,.env.*,*.clixml,.local\*,dist\*"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\packages\*"; DestDir: "{app}\packages"; Excludes: ".env,.env.*,*.clixml,.local\*,dist\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Craft Terminal"; Filename: "{cmd}"; Parameters: "/K """"{app}\craft.exe"" version"""; WorkingDir: "{userdocs}"
-Name: "{group}\Craft User Guide"; Filename: "{sys}\notepad.exe"; Parameters: """{app}\docs\TRY-REV11.md"""
+Name: "{group}\Craft User Guide"; Filename: "{sys}\notepad.exe"; Parameters: """{app}\docs\TRY-REV202.md"""
 
 [Registry]
 Root: HKCU; Subkey: "Software\Classes\.craft\OpenWithProgids"; ValueType: string; ValueName: "Craft.Source"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Classes\Craft.Source"; ValueType: string; ValueData: "Craft source file"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\Craft.Source\shell\open\command"; ValueType: string; ValueData: """{sys}\notepad.exe"" ""%1"""
+; Keep the legacy registry key for upgrades from older installers.
 Root: HKCU; Subkey: "Software\CraftPhase1"; Flags: uninsdeletekey
 
 [Code]

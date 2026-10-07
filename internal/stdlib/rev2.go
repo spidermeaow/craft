@@ -71,11 +71,14 @@ func init() {
 
 // Session owns program input and arguments. No global reader or random state.
 type Session struct {
-	logger   *sessionLogger
-	reader   *bufio.Reader
-	args     []string
-	canceled atomic.Bool
-	reading  atomic.Bool
+	ui           *uiSession
+	uiImages     map[string]uiCachedImage
+	uiImageBytes int64
+	logger       *sessionLogger
+	reader       *bufio.Reader
+	args         []string
+	canceled     atomic.Bool
+	reading      atomic.Bool
 }
 
 func NewSession(in io.Reader, args []string) *Session {
@@ -85,6 +88,9 @@ func NewSession(in io.Reader, args []string) *Session {
 	return &Session{reader: bufio.NewReader(in), args: append([]string(nil), args...), logger: &sessionLogger{out: os.Stderr, level: 1}}
 }
 func (s *Session) Invoke(ctx context.Context, out io.Writer, name string, args []any) (any, error) {
+	if strings.HasPrefix(name, "std.ui.") {
+		return s.invokeUI(ctx, name, args)
+	}
 	if strings.HasPrefix(name, "std.log.") {
 		if err := ctx.Err(); err != nil {
 			return nil, err

@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "root": "gui-package-lab@0.1.0",
+  "dependencies": {
+    "gui": "gui@0.2.8"
+  },
+  "packages": [
+    {
+      "id": "gui@0.2.8",
+      "source": "../../packages/gui",
+      "checksum": "6ac294d181e6b2b652276dc046a38ae97c9cb2ebd5a63a27770ec81c7ae59a02"
+    }
+  ]
+}

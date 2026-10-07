@@ -557,7 +557,18 @@ func (p *Project) Build() (string, error) {
 			return "", fmt.Errorf("refusing to overwrite unrecognized artifact: %w", e)
 		}
 	}
-	data, e := json.MarshalIndent(Bundle{Format: "craft-source-bundle", Version: 3, Language: "0.1.11", Name: p.Manifest.Name, Entry: p.Manifest.Entry, Sources: p.Sources, Modules: p.Modules}, "", "  ")
+	language := "0.1.11"
+	for _, module := range p.Modules {
+		for _, source := range module.Sources {
+			if strings.Contains(source.Text, "std.ui.") && language != "0.1.24" {
+				language = "0.1.22"
+			}
+			if strings.Contains(source.Text, "std.ui.canvas(") || strings.Contains(source.Text, "std.ui.drawImage(") || strings.Contains(source.Text, "std.ui.fillRect(") || strings.Contains(source.Text, "std.ui.strokeRect(") || strings.Contains(source.Text, "std.ui.drawLine(") || strings.Contains(source.Text, "std.ui.drawText(") {
+				language = "0.1.24"
+			}
+		}
+	}
+	data, e := json.MarshalIndent(Bundle{Format: "craft-source-bundle", Version: 3, Language: language, Name: p.Manifest.Name, Entry: p.Manifest.Entry, Sources: p.Sources, Modules: p.Modules}, "", "  ")
 	if e != nil {
 		return "", e
 	}

@@ -41,6 +41,57 @@ var signatures = map[string]Signature{
 	"std.env.get":             {Params: []ast.Type{ast.String}, Result: ast.String},
 }
 
+func init() {
+	signatures["std.ui.openWindow"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int}, Result: ast.UiWindow}
+	signatures["std.ui.setTitle"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.setBackground"] = Signature{Params: []ast.Type{ast.UiWindow, ast.Int, ast.Int, ast.Int}, Result: ast.Void}
+	signatures["std.ui.closeWindow"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.Void}
+	signatures["std.ui.nextEvent"] = Signature{Params: []ast.Type{ast.Int}, Result: ast.Type("UiEvent").Optional()}
+	signatures["std.ui.row"] = Signature{Params: []ast.Type{ast.String, ast.UiNode.Array()}, Result: ast.UiNode}
+	signatures["std.ui.column"] = Signature{Params: []ast.Type{ast.String, ast.UiNode.Array()}, Result: ast.UiNode}
+	signatures["std.ui.panel"] = Signature{Params: []ast.Type{ast.String, ast.UiNode.Array()}, Result: ast.UiNode}
+	signatures["std.ui.grid"] = Signature{Params: []ast.Type{ast.String, ast.UiNode.Array(), ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.size"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.maxSize"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.align"] = Signature{Params: []ast.Type{ast.UiNode, ast.String, ast.String}, Result: ast.UiNode}
+	signatures["std.ui.spacing"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.splitView"] = Signature{Params: []ast.Type{ast.String, ast.UiNode, ast.UiNode, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.scrollView"] = Signature{Params: []ast.Type{ast.String, ast.UiNode}, Result: ast.UiNode}
+	signatures["std.ui.virtualList"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.UiNode.Array()}, Result: ast.UiNode}
+	signatures["std.ui.text"] = Signature{Params: []ast.Type{ast.String, ast.String}, Result: ast.UiNode}
+	signatures["std.ui.button"] = Signature{Params: []ast.Type{ast.String, ast.String}, Result: ast.UiNode}
+	signatures["std.ui.textStyle"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.textWrap"] = Signature{Params: []ast.Type{ast.UiNode}, Result: ast.UiNode}
+	signatures["std.ui.focusPolicy"] = Signature{Params: []ast.Type{ast.UiNode, ast.Bool, ast.Bool}, Result: ast.UiNode}
+	signatures["std.ui.accessible"] = Signature{Params: []ast.Type{ast.UiNode, ast.String, ast.String}, Result: ast.UiNode}
+	signatures["std.ui.focus"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.pushFocusScope"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.popFocusScope"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.bindScopedShortcut"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String, ast.String, ast.Int, ast.Int}, Result: ast.Void}
+	signatures["std.ui.unbindScopedShortcut"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String, ast.String}, Result: ast.Void}
+	signatures["std.ui.bindShortcut"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String, ast.Int, ast.Int}, Result: ast.Void}
+	signatures["std.ui.unbindShortcut"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.surface"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.textInput"] = Signature{Params: []ast.Type{ast.String, ast.String, ast.String}, Result: ast.UiNode}
+	signatures["std.ui.setText"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String, ast.String}, Result: ast.Void}
+	signatures["std.ui.mount"] = Signature{Params: []ast.Type{ast.UiWindow, ast.UiNode}, Result: ast.Void}
+	signatures["std.ui.update"] = Signature{Params: []ast.Type{ast.UiWindow, ast.UiNode}, Result: ast.Void}
+	signatures["std.ui.renderer"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.String}
+	signatures["std.ui.viewportWidth"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.Int}
+	signatures["std.ui.viewportHeight"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.Int}
+	signatures["std.ui.measureTextWidth"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String, ast.Int, ast.Int}, Result: ast.Int}
+	signatures["std.ui.color"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.Int}
+	signatures["std.ui.fillRect"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.strokeRect"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.drawLine"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.drawText"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.drawTextStyled"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.String}, Result: ast.UiDraw}
+	signatures["std.ui.hitRegion"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.targetPolicy"] = Signature{Params: []ast.Type{ast.UiDraw, ast.Bool, ast.Bool, ast.String}, Result: ast.UiDraw}
+	signatures["std.ui.drawImage"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.canvas"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.UiDraw.Array()}, Result: ast.UiNode}
+}
+
 func Lookup(name string) (Signature, bool) { s, ok := signatures[name]; return s, ok }
 func Method(receiver ast.Type, name string) (Signature, bool) {
 	if s, ok := rev4Method(receiver, name); ok {

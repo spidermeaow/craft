@@ -1,0 +1,57 @@
+func picture(id: String, alternate: Bool): UiNode {
+    var commands: UiDraw[] = []
+    commands.append(std.ui.fillRect(0, 0, 500, 330, std.ui.color(246, 248, 252, 255), 12))
+    if alternate {
+        commands.append(std.ui.fillRect(25, 25, 220, 90, std.ui.color(19, 127, 118, 230), 18))
+    } else {
+        commands.append(std.ui.fillRect(25, 25, 220, 90, std.ui.color(82, 87, 230, 230), 18))
+    }
+    commands.append(std.ui.strokeRect(20, 20, 460, 290, std.ui.color(79, 95, 120, 255), 2, 14))
+    commands.append(std.ui.drawText("Craft UI Paint Lab", 45, 50, 290, 35, std.ui.color(255, 255, 255, 255)))
+    commands.append(std.ui.drawText("ภาษาไทย / English", 35, 145, 390, 40, std.ui.color(30, 47, 80, 255)))
+    commands.append(std.ui.drawLine(35, 205, 460, 205, std.ui.color(60, 110, 210, 255), 3))
+    commands.append(std.ui.drawImage("assets/craft.png", 290, 25, 120, 120))
+    commands.append(std.ui.fillRect(35, 235, 350, 45, std.ui.color(255, 155, 65, 120), 8))
+    return std.ui.canvas(id, 500, 330, commands)
+}
+
+func screen(status: String, alternate: Bool): UiNode {
+    var left: UiNode[] = []
+    left.append(std.ui.text("title", "Craft UI Paint Lab 0.1.24"))
+    left.append(std.ui.button("change", "Change color"))
+    left.append(std.ui.text("hint", "Click a canvas, resize, or scroll"))
+    left.append(std.ui.text("status", status))
+
+    var art: UiNode[] = []
+    art.append(picture("canvas-one", alternate))
+    art.append(picture("canvas-two", false))
+    let content: UiNode = std.ui.size(std.ui.column("art-content", art), 520, 700, 0, 0, 0)
+    let gallery: UiNode = std.ui.scrollView("gallery", content)
+    let controls: UiNode = std.ui.column("controls", left)
+    return std.ui.splitView("root", controls, gallery, 28, 210, 350)
+}
+
+func main() {
+    let window: UiWindow = std.ui.openWindow("Craft UI Paint Lab", 960, 650)
+    var alternate: Bool = false
+    var status: String = "Ready"
+    std.ui.mount(window, screen(status, alternate))
+    print("Renderer: " + std.ui.renderer(window))
+    var running: Bool = true
+    while running {
+        if let event = std.ui.nextEvent(100) {
+            if event.kind == "ButtonPressed" && event.nodeId == "change" {
+                alternate = !alternate
+                status = "Palette changed"
+                std.ui.update(window, screen(status, alternate))
+            }
+            if event.kind == "CanvasPressed" {
+                status = "Clicked " + event.nodeId
+                print("Canvas local position:", event.x, event.y)
+                std.ui.update(window, screen(status, alternate))
+            }
+            if event.kind == "CloseRequested" { running = false }
+        }
+    }
+    std.ui.closeWindow(window)
+}

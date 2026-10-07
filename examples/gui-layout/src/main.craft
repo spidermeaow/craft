@@ -1,0 +1,24 @@
+func screen(message: String): UiNode {
+    var children: UiNode[] = []
+    children.append(std.ui.text("message", message))
+    children.append(std.ui.button("action", "Click me"))
+    return std.ui.column("root", children)
+}
+
+func main() {
+    let window: UiWindow = std.ui.openWindow("Craft UI layout", 640, 400)
+    std.ui.mount(window, screen("Hello from Craft"))
+    print("Renderer: " + std.ui.renderer(window))
+    var running: Bool = true
+    while running {
+        if let event = std.ui.nextEvent(100) {
+            if event.kind == "ButtonPressed" && event.nodeId == "action" {
+                std.ui.update(window, screen("Button pressed in Craft"))
+            }
+            if event.kind == "CloseRequested" {
+                running = false
+            }
+        }
+    }
+    std.ui.closeWindow(window)
+}

@@ -1,0 +1,144 @@
+// Craft GUI 0.2.8: reusable composition over the native std.ui runtime.
+export func openWindow(title: String, width: Int, height: Int): UiWindow { return std.ui.openWindow(title, width, height) }
+export func setTitle(window: UiWindow, title: String) { std.ui.setTitle(window, title) }
+export func setBackground(window: UiWindow, red: Int, green: Int, blue: Int) { std.ui.setBackground(window, red, green, blue) }
+export func closeWindow(window: UiWindow) { std.ui.closeWindow(window) }
+export func nextEvent(timeoutMs: Int): UiEvent? { return std.ui.nextEvent(timeoutMs) }
+export func mount(window: UiWindow, root: UiNode) { std.ui.mount(window, root) }
+export func update(window: UiWindow, root: UiNode) { std.ui.update(window, root) }
+export func renderer(window: UiWindow): String { return std.ui.renderer(window) }
+export func viewportWidth(window: UiWindow): Int { return std.ui.viewportWidth(window) }
+export func viewportHeight(window: UiWindow): Int { return std.ui.viewportHeight(window) }
+export func measureTextWidth(window: UiWindow, value: String, size: Int, weight: Int): Int { return std.ui.measureTextWidth(window, value, size, weight) }
+export func focus(window: UiWindow, id: String) { std.ui.focus(window, id) }
+export func pushFocusScope(window: UiWindow, id: String) { std.ui.pushFocusScope(window, id) }
+export func popFocusScope(window: UiWindow, id: String) { std.ui.popFocusScope(window, id) }
+export func focusPolicy(node: UiNode, tabStop: Bool, enabled: Bool): UiNode { return std.ui.focusPolicy(node, tabStop, enabled) }
+export func accessible(node: UiNode, name: String, role: String): UiNode { return std.ui.accessible(node, name, role) }
+// Virtual key codes: F5=116, S=83. Modifiers: Shift=1, Ctrl=2, Alt=4.
+export func bindShortcut(window: UiWindow, commandId: String, key: Int, modifiers: Int) { std.ui.bindShortcut(window, commandId, key, modifiers) }
+export func unbindShortcut(window: UiWindow, commandId: String) { std.ui.unbindShortcut(window, commandId) }
+export func bindScopedShortcut(window: UiWindow, scopeId: String, commandId: String, key: Int, modifiers: Int) { std.ui.bindScopedShortcut(window, scopeId, commandId, key, modifiers) }
+export func unbindScopedShortcut(window: UiWindow, scopeId: String, commandId: String) { std.ui.unbindScopedShortcut(window, scopeId, commandId) }
+export func commandInvoked(event: UiEvent, commandId: String): Bool { return event.kind == "CommandInvoked" && event.nodeId == commandId }
+
+export func row(id: String, children: UiNode[]): UiNode { return std.ui.row(id, children) }
+export func column(id: String, children: UiNode[]): UiNode { return std.ui.column(id, children) }
+export func panel(id: String, children: UiNode[]): UiNode { return std.ui.panel(id, children) }
+export func size(node: UiNode, width: Int, height: Int, minWidth: Int, minHeight: Int, weight: Int): UiNode { return std.ui.size(node, width, height, minWidth, minHeight, weight) }
+export func maxSize(node: UiNode, width: Int, height: Int): UiNode { return std.ui.maxSize(node, width, height) }
+export func align(node: UiNode, horizontal: String, vertical: String): UiNode { return std.ui.align(node, horizontal, vertical) }
+export func spacing(node: UiNode, padding: Int, gap: Int): UiNode { return std.ui.spacing(node, padding, gap) }
+export func splitView(id: String, first: UiNode, second: UiNode, percent: Int, firstMin: Int, secondMin: Int): UiNode { return std.ui.splitView(id, first, second, percent, firstMin, secondMin) }
+export func scrollView(id: String, child: UiNode): UiNode { return std.ui.scrollView(id, child) }
+export func grid(id: String, items: UiNode[], minCellWidth: Int, maxColumns: Int, gap: Int): UiNode { return std.ui.grid(id, items, minCellWidth, maxColumns, gap) }
+export func virtualList(id: String, itemCount: Int, rowHeight: Int, firstIndex: Int, items: UiNode[]): UiNode { return std.ui.virtualList(id, itemCount, rowHeight, firstIndex, items) }
+
+export func text(id: String, value: String): UiNode { return std.ui.text(id, value) }
+export func button(id: String, label: String): UiNode { return std.ui.button(id, label) }
+export func textStyle(node: UiNode, size: Int, weight: Int, paint: Int): UiNode { return std.ui.textStyle(node, size, weight, paint) }
+export func textWrap(node: UiNode): UiNode { return std.ui.textWrap(node) }
+export func surface(node: UiNode, fill: Int, border: Int, radius: Int): UiNode { return std.ui.surface(node, fill, border, radius) }
+export func textInput(id: String, value: String, placeholder: String): UiNode { return std.ui.textInput(id, value, placeholder) }
+export func setText(window: UiWindow, id: String, value: String) { std.ui.setText(window, id, value) }
+
+export func color(red: Int, green: Int, blue: Int, alpha: Int): Int { return std.ui.color(red, green, blue, alpha) }
+export func fillRect(x: Int, y: Int, width: Int, height: Int, paint: Int, radius: Int): UiDraw { return std.ui.fillRect(x, y, width, height, paint, radius) }
+export func strokeRect(x: Int, y: Int, width: Int, height: Int, paint: Int, thickness: Int, radius: Int): UiDraw { return std.ui.strokeRect(x, y, width, height, paint, thickness, radius) }
+export func drawLine(x1: Int, y1: Int, x2: Int, y2: Int, paint: Int, thickness: Int): UiDraw { return std.ui.drawLine(x1, y1, x2, y2, paint, thickness) }
+export func drawText(value: String, x: Int, y: Int, width: Int, height: Int, paint: Int): UiDraw { return std.ui.drawText(value, x, y, width, height, paint) }
+export func drawTextStyled(value: String, x: Int, y: Int, width: Int, height: Int, paint: Int, size: Int, weight: Int, alignment: String): UiDraw { return std.ui.drawTextStyled(value, x, y, width, height, paint, size, weight, alignment) }
+export func hitRegion(id: String, x: Int, y: Int, width: Int, height: Int): UiDraw { return std.ui.hitRegion(id, x, y, width, height) }
+export func targetPolicy(region: UiDraw, tabStop: Bool, enabled: Bool, name: String): UiDraw { return std.ui.targetPolicy(region, tabStop, enabled, name) }
+export func drawImage(path: String, x: Int, y: Int, width: Int, height: Int): UiDraw { return std.ui.drawImage(path, x, y, width, height) }
+export func canvas(id: String, width: Int, height: Int, commands: UiDraw[]): UiNode { return std.ui.canvas(id, width, height, commands) }
+
+// Compositions keep their child IDs; callers own state and event routing.
+export func card(id: String, content: UiNode[]): UiNode { return std.ui.spacing(std.ui.panel(id, [std.ui.column(id + "-content", content)]), largeSpacing(), mediumSpacing()) }
+export func toolbar(id: String, actions: UiNode[]): UiNode { return std.ui.spacing(std.ui.row(id, actions), mediumSpacing(), mediumSpacing()) }
+export func navigation(id: String, items: UiNode[]): UiNode { return std.ui.spacing(std.ui.column(id, items), mediumSpacing(), 6) }
+export func field(id: String, label: String, value: String, placeholder: String): UiNode {
+    var parts: UiNode[] = []
+    parts.append(std.ui.text(id + "-label", label))
+    parts.append(std.ui.accessible(std.ui.textInput(id + "-input", value, placeholder), label, "textbox"))
+    return std.ui.spacing(std.ui.column(id, parts), smallSpacing(), smallSpacing())
+}
+
+// Package policy: an app owns its viewport breakpoint and decides when to rebuild.
+export func compact(width: Int, breakpoint: Int): Bool { return width < breakpoint }
+// Grid receives its allocated width from the Runtime; no viewport subtraction is needed.
+export func autoGrid(id: String, items: UiNode[], minCellWidth: Int, maxColumns: Int, gap: Int): UiNode { return std.ui.grid(id, items, minCellWidth, maxColumns, gap) }
+// Rebuild this composition after Resized or DpiChanged using the new viewport width.
+export func responsiveGrid(id: String, items: UiNode[], availableWidth: Int, minCellWidth: Int, maxColumns: Int, gap: Int): UiNode {
+    var columns: Int = 1
+    if minCellWidth > 0 && gap >= 0 && maxColumns > 0 {
+        columns = (availableWidth + gap) / (minCellWidth + gap)
+        if columns < 1 { columns = 1 }
+        if columns > maxColumns { columns = maxColumns }
+    }
+    var cellWidth: Int = (availableWidth - (columns - 1) * gap) / columns
+    if cellWidth < 1 { cellWidth = 1 }
+    var rows: UiNode[] = []
+    var current: UiNode[] = []
+    for i in 0..items.length {
+        current.append(std.ui.size(items[i], cellWidth, 0, 0, 0, 0))
+        if current.length == columns {
+            rows.append(std.ui.spacing(std.ui.row(id + "-row-" + std.convert.toString(rows.length), current), 0, gap))
+            current = []
+        }
+    }
+    if current.length > 0 {
+        rows.append(std.ui.spacing(std.ui.row(id + "-row-" + std.convert.toString(rows.length), current), 0, gap))
+    }
+    return std.ui.spacing(std.ui.column(id, rows), 0, gap)
+}
+export func viewportChanged(event: UiEvent): Bool { return event.kind == "Resized" || event.kind == "DpiChanged" }
+export func targetPressed(event: UiEvent, id: String): Bool { return event.kind == "CanvasTargetPressed" && event.nodeId == id }
+
+export func primaryColor(): Int { return std.ui.color(41, 106, 226, 255) }
+export func foregroundColor(): Int { return std.ui.color(30, 42, 62, 255) }
+export func surfaceColor(): Int { return std.ui.color(250, 252, 255, 255) }
+export func borderColor(): Int { return std.ui.color(211, 223, 237, 255) }
+export func smallSpacing(): Int { return 4 }
+export func mediumSpacing(): Int { return 8 }
+export func largeSpacing(): Int { return 12 }
+
+export func heading(id: String, value: String): UiNode {
+    return std.ui.textStyle(std.ui.text(id, value), 22, 700, foregroundColor())
+}
+export func primaryButton(id: String, label: String): UiNode {
+    let node: UiNode = std.ui.textStyle(std.ui.button(id, label), 16, 600, std.ui.color(255, 255, 255, 255))
+    return std.ui.accessible(std.ui.surface(node, primaryColor(), std.ui.color(18, 82, 187, 255), 8), label, "button")
+}
+export func surfaceCard(id: String, content: UiNode[], fill: Int, border: Int, radius: Int): UiNode {
+    let node: UiNode = card(id, content)
+    return std.ui.surface(node, fill, border, radius)
+}
+export func appShell(id: String, header: UiNode, sidebar: UiNode, content: UiNode, sidebarWidth: Int): UiNode {
+    var body: UiNode[] = []
+    body.append(std.ui.size(sidebar, sidebarWidth, 0, sidebarWidth, 0, 0))
+    body.append(std.ui.size(content, 0, 0, 0, 0, 1))
+    var root: UiNode[] = []
+    root.append(header)
+    root.append(std.ui.size(std.ui.row(id + "-body", body), 0, 0, 0, 0, 1))
+    return std.ui.column(id, root)
+}
+export func adaptiveShell(id: String, header: UiNode, sidebar: UiNode, mobileNav: UiNode, content: UiNode, viewportWidth: Int, breakpoint: Int, sidebarWidth: Int): UiNode {
+    if compact(viewportWidth, breakpoint) {
+        var stacked: UiNode[] = []
+        stacked.append(header)
+        stacked.append(mobileNav)
+        stacked.append(std.ui.size(content, 0, 0, 0, 0, 1))
+        return std.ui.column(id, stacked)
+    }
+    return appShell(id, header, sidebar, content, sidebarWidth)
+}
+
+// Retained Canvas target: the final command is the topmost hit region.
+export func targetButton(id: String, label: String, x: Int, y: Int, width: Int, height: Int, fill: Int, foreground: Int): UiDraw[] {
+    var draws: UiDraw[] = []
+    draws.append(std.ui.fillRect(x, y, width, height, fill, 6))
+    draws.append(std.ui.drawTextStyled(label, x + 8, y + 6, width - 16, height - 12, foreground, 16, 600, "center"))
+    draws.append(std.ui.targetPolicy(std.ui.hitRegion(id, x, y, width, height), true, true, label))
+    return draws
+}

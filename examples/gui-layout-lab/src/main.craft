@@ -1,0 +1,84 @@
+func listPane(): UiNode {
+    var rows: UiNode[] = []
+    rows.append(std.ui.text("list-title", "Items"))
+    rows.append(std.ui.textInput("list-search", "", "Search items"))
+    rows.append(std.ui.button("item-1", "Item 001"))
+    rows.append(std.ui.button("item-2", "Item 002"))
+    rows.append(std.ui.button("item-3", "Item 003"))
+    rows.append(std.ui.button("item-4", "Item 004"))
+    rows.append(std.ui.button("item-5", "Item 005"))
+    rows.append(std.ui.button("item-6", "Item 006"))
+    rows.append(std.ui.button("item-7", "Item 007"))
+    rows.append(std.ui.button("item-8", "Item 008"))
+    rows.append(std.ui.button("item-9", "Item 009"))
+    rows.append(std.ui.button("item-10", "Item 010"))
+    rows.append(std.ui.button("item-11", "Item 011"))
+    rows.append(std.ui.button("item-12", "Item 012"))
+    let content: UiNode = std.ui.size(std.ui.column("list-content", rows), 300, 650, 0, 0, 0)
+    return std.ui.scrollView("list-scroll", content)
+}
+
+func detailPane(): UiNode {
+    var fields: UiNode[] = []
+    fields.append(std.ui.text("detail-title", "Details"))
+    fields.append(std.ui.text("name-label", "Name"))
+    fields.append(std.ui.textInput("name", "", "Type a name"))
+    fields.append(std.ui.text("code-label", "Code"))
+    fields.append(std.ui.textInput("code", "", "Type a code"))
+    fields.append(std.ui.text("notes-label", "Notes placeholder"))
+    fields.append(std.ui.text("more-label", "This pane scrolls independently"))
+    let content: UiNode = std.ui.size(std.ui.column("detail-content", fields), 480, 650, 0, 0, 0)
+    return std.ui.scrollView("detail-scroll", content)
+}
+
+func screen(status: String): UiNode {
+    var topItems: UiNode[] = []
+    topItems.append(std.ui.align(std.ui.text("app-title", "Craft UI Layout Lab 0.1.23"), "start", "center"))
+    topItems.append(std.ui.align(std.ui.maxSize(std.ui.button("refresh", "Refresh"), 110, 36), "start", "center"))
+    let top: UiNode = std.ui.size(std.ui.row("top", topItems), 0, 50, 0, 0, 0)
+
+    var navItems: UiNode[] = []
+    navItems.append(std.ui.button("nav-one", "Overview"))
+    navItems.append(std.ui.button("nav-two", "Items"))
+    navItems.append(std.ui.button("nav-three", "Settings"))
+    let nav: UiNode = std.ui.size(std.ui.column("navigation", navItems), 0, 0, 140, 0, 0)
+
+    var tabs: UiNode[] = []
+    tabs.append(std.ui.button("tab-one", "Tab A"))
+    tabs.append(std.ui.button("tab-two", "Tab B"))
+    let tabRow: UiNode = std.ui.size(std.ui.row("tab-row", tabs), 0, 44, 0, 0, 0)
+    let panes: UiNode = std.ui.size(std.ui.splitView("master-detail", listPane(), detailPane(), 35, 220, 260), 0, 0, 0, 200, 1)
+    var workItems: UiNode[] = []
+    workItems.append(tabRow)
+    workItems.append(panes)
+    let work: UiNode = std.ui.column("work", workItems)
+    let main: UiNode = std.ui.size(std.ui.splitView("navigation-work", nav, work, 20, 140, 480), 0, 0, 0, 300, 1)
+
+    var rootItems: UiNode[] = []
+    rootItems.append(top)
+    rootItems.append(main)
+    rootItems.append(std.ui.size(std.ui.text("status", status), 0, 34, 0, 0, 0))
+    return std.ui.spacing(std.ui.column("root", rootItems), 4, 4)
+}
+
+func main() {
+    let window: UiWindow = std.ui.openWindow("Craft UI Layout Lab", 1100, 720)
+    var status: String = "Resize, scroll each pane, and type in the fields"
+    std.ui.mount(window, screen(status))
+    print("Renderer: " + std.ui.renderer(window))
+    var running: Bool = true
+    while running {
+        if let event = std.ui.nextEvent(100) {
+            if event.kind == "ButtonPressed" {
+                status = "Pressed: " + event.nodeId
+                std.ui.update(window, screen(status))
+            }
+            if event.kind == "TextChanged" {
+                status = "Edited: " + event.nodeId
+                std.ui.update(window, screen(status))
+            }
+            if event.kind == "CloseRequested" { running = false }
+        }
+    }
+    std.ui.closeWindow(window)
+}

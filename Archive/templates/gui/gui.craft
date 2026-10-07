@@ -1,0 +1,59 @@
+export func openWindow(title: String, width: Int, height: Int): UiWindow {
+    return std.ui.openWindow(title, width, height)
+}
+
+export func setTitle(window: UiWindow, title: String) {
+    std.ui.setTitle(window, title)
+}
+
+export func setBackground(window: UiWindow, red: Int, green: Int, blue: Int) {
+    std.ui.setBackground(window, red, green, blue)
+}
+
+export func nextEvent(timeoutMs: Int): UiEvent? {
+    return std.ui.nextEvent(timeoutMs)
+}
+
+export func closeWindow(window: UiWindow) {
+    std.ui.closeWindow(window)
+}
+
+export func row(id: String, children: UiNode[]): UiNode {
+    return std.ui.row(id, children)
+}
+
+export func column(id: String, children: UiNode[]): UiNode {
+    return std.ui.column(id, children)
+}
+
+export func panel(id: String, children: UiNode[]): UiNode {
+    return std.ui.panel(id, children)
+}
+
+export func scrollView(id: String, child: UiNode): UiNode {
+    return std.ui.scrollView(id, child)
+}
+
+export func virtualList(id: String, itemCount: Int, rowHeight: Int, firstIndex: Int, items: UiNode[]): UiNode {
+    return std.ui.virtualList(id, itemCount, rowHeight, firstIndex, items)
+}
+
+export func text(id: String, value: String): UiNode {
+    return std.ui.text(id, value)
+}
+
+export func button(id: String, label: String): UiNode {
+    return std.ui.button(id, label)
+}
+
+export func mount(window: UiWindow, root: UiNode) {
+    std.ui.mount(window, root)
+}
+
+export func update(window: UiWindow, root: UiNode) {
+    std.ui.update(window, root)
+}
+
+export func renderer(window: UiWindow): String {
+    return std.ui.renderer(window)
+}

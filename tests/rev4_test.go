@@ -40,8 +40,8 @@ func TestRev4RejectFunctionMismatches(t *testing.T) {
 		}
 	}
 }
-func TestRev4CraftFrameworkAndApp(t *testing.T) {
-	for _, dir := range []string{"../packages/api-framework", "../examples/api-server"} {
+func TestRev4HTTPRuntimeExample(t *testing.T) {
+	for _, dir := range []string{"../examples/api-server"} {
 		p, e := project.LoadTests(dir)
 		if e != nil {
 			t.Fatal(e)

@@ -97,6 +97,7 @@ func RunWithInput(ctx context.Context, p *ast.Program, in io.Reader, out io.Writ
 func RunWithWriters(ctx context.Context, p *ast.Program, in io.Reader, out, logOut io.Writer, args []string) error {
 	m := newMachine(ctx, p, out)
 	m.library = stdlib.NewSession(in, args)
+	defer m.library.Close()
 	if logOut != nil {
 		m.library.SetLogWriter(logOut)
 	}
@@ -109,6 +110,7 @@ func RunTest(ctx context.Context, p *ast.Program, t *ast.Test, out io.Writer) er
 }
 func RunTestWithWriters(ctx context.Context, p *ast.Program, t *ast.Test, out, logOut io.Writer) error {
 	m := newMachine(ctx, p, out)
+	defer m.library.Close()
 	if logOut != nil {
 		m.library.SetLogWriter(logOut)
 	}

@@ -1,0 +1,42 @@
+func screen(status: String): UiNode {
+    var controls: UiNode[] = []
+    controls.append(std.ui.text("title", "Craft UI Input Lab 0.1.22"))
+    controls.append(std.ui.text("english-label", "English and emoji"))
+    controls.append(std.ui.textInput("english", "", "Type English or emoji"))
+    controls.append(std.ui.text("thai-label", "Thai and IME"))
+    controls.append(std.ui.textInput("thai", "", "พิมพ์ภาษาไทยที่นี่"))
+    controls.append(std.ui.button("clear", "Clear both inputs"))
+    controls.append(std.ui.text("status", status))
+    return std.ui.column("root", controls)
+}
+
+func main() {
+    let window: UiWindow = std.ui.openWindow("Craft UI Input Lab", 800, 480)
+    var status: String = "Click a field, type, then press Enter"
+    std.ui.mount(window, screen(status))
+    print("Renderer: " + std.ui.renderer(window))
+    var running: Bool = true
+    while running {
+        if let event = std.ui.nextEvent(100) {
+            if event.kind == "TextChanged" {
+                status = event.nodeId + " changed: " + event.text
+                std.ui.update(window, screen(status))
+            }
+            if event.kind == "TextSubmitted" {
+                status = event.nodeId + " submitted: " + event.text
+                std.ui.update(window, screen(status))
+            }
+            if event.kind == "FocusChanged" {
+                print("Focus:", event.nodeId)
+            }
+            if event.kind == "ButtonPressed" && event.nodeId == "clear" {
+                std.ui.setText(window, "english", "")
+                std.ui.setText(window, "thai", "")
+                status = "Inputs cleared"
+                std.ui.update(window, screen(status))
+            }
+            if event.kind == "CloseRequested" { running = false }
+        }
+    }
+    std.ui.closeWindow(window)
+}

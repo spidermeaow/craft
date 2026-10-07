@@ -1,0 +1,20 @@
+func main() {
+    let window: UiWindow = std.ui.openWindow("Craft GUI bridge", 800, 500)
+    var running: Bool = true
+    while running {
+        if let event = std.ui.nextEvent(100) {
+            if event.kind == "PointerClicked" {
+                std.ui.setTitle(window, "Clicked in Craft")
+                std.ui.setBackground(window, 99, 102, 241)
+            }
+            if event.kind == "KeyPressed" {
+                std.ui.setTitle(window, "Key pressed")
+                std.ui.setBackground(window, 245, 158, 11)
+            }
+            if event.kind == "CloseRequested" {
+                running = false
+            }
+        }
+    }
+    std.ui.closeWindow(window)
+}

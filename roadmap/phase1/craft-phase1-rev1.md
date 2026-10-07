@@ -1070,7 +1070,7 @@ Craft Phase 1 Rev.1 ถือว่าสำเร็จเมื่อ:
 - Garbage Collector แบบกำหนดเอง
 - Language Server เต็มรูปแบบ
 
-สิ่งเหล่านี้สามารถนำไปพิจารณาใน Phase 2 หลังจาก Language Core และ Runtime มีเสถียรภาพ
+สิ่งเหล่านี้สามารถนำไปพิจารณาใน revision ถัดไปของ Phase 1 หลังจาก Language Core และ Runtime มีเสถียรภาพ
 
 ---
 
@@ -1099,14 +1099,14 @@ Phase 1 Rev.2
     Callback
     Event Library
 
-Phase 2
+งานภาษาในรุ่นต่อไป (ตัวอย่างจากแผนเดิม)
     Generics
     Pattern Matching
     Async / Await
     Concurrency
     Bytecode VM
 
-Phase 3
+งาน package และเครื่องมือในรุ่นต่อไป (ตัวอย่างจากแผนเดิม)
     Package Manager
     HTTP/API Framework
     Database
