@@ -1,0 +1,122 @@
+func sample(): DbRows {
+    return DbRows(columns: ["name", "count", "note"], rows: [
+        [std.db.text("สวัสดี"), std.db.int(7), std.db.nullValue()],
+    ])
+}
+
+test "one and typed column access" {
+    let rows: DbRows = sample()
+    let row: DbValue[] = requireOne(rows)
+    assert columnIndex(rows, "name") == 0
+    assert requiredText(rows, row, "name") == "สวัสดี"
+    assert requiredInt(rows, row, "count") == 7
+    assert optionalText(rows, row, "note") == null
+    if let count = optionalInt(rows, row, "count") {
+        assert count == 7
+    }
+    else {
+        assert false
+    }
+}
+
+test "zero and multiple rows have explicit cardinality" {
+    let empty: DbRows = DbRows(columns: ["name"], rows: [])
+    assert one(empty) == null
+    var noRows: Bool = false
+    try {
+        requireOne(empty)
+    }
+    catch error {
+        noRows = error.message.contains("DbNoRows")
+    }
+    assert noRows
+    let multiple: DbRows = DbRows(columns: ["name"], rows: [
+        [std.db.text("a")], [std.db.text("b")],
+    ])
+    var tooMany: Bool = false
+    try {
+        one(multiple)
+    }
+    catch error {
+        tooMany = error.message.contains("DbMultipleRows")
+    }
+    assert tooMany
+}
+
+test "column, shape, null and type failures" {
+    let rows: DbRows = sample()
+    let row: DbValue[] = requireOne(rows)
+    var missing: Bool = false
+    try {
+        columnIndex(rows, "absent")
+    }
+    catch error {
+        missing = error.message.contains("DbMissingColumn")
+    }
+    assert missing
+    let duplicate: DbRows = DbRows(columns: ["id", "id"], rows: [])
+    var ambiguous: Bool = false
+    try {
+        columnIndex(duplicate, "id")
+    }
+    catch error {
+        ambiguous = error.message.contains("DbDuplicateColumn")
+    }
+    assert ambiguous
+    var nullValue: Bool = false
+    try {
+        requiredText(rows, row, "note")
+    }
+    catch error {
+        nullValue = error.message.contains("DbNullValue")
+    }
+    assert nullValue
+    var wrongType: Bool = false
+    try {
+        requiredText(rows, row, "count")
+    }
+    catch error {
+        wrongType = error.message.contains("DbTypeMismatch")
+    }
+    assert wrongType
+    let short: DbRows = DbRows(columns: ["a", "b"], rows: [[std.db.int(1)]])
+    var malformed: Bool = false
+    try {
+        requiredInt(short, requireOne(short), "b")
+    }
+    catch error {
+        malformed = error.message.contains("DbRowShapeError")
+    }
+    assert malformed
+}
+
+test "decimal and binary are strict" {
+    let payload: Bytes = std.bytes.fromString("binary")
+    let rows: DbRows = DbRows(columns: ["price", "payload"], rows: [
+        [std.db.decimal("12.50"), std.db.bytes(payload)],
+    ])
+    let row: DbValue[] = requireOne(rows)
+    assert requiredDecimal(rows, row, "price") == "12.50"
+    assert requiredBytes(rows, row, "payload").text() == "binary"
+}
+
+test "affected count must be available and exact" {
+    expectAffected(DbResult(affectedRows: 0, lastInsertId: null), 0)
+    expectAffected(DbResult(affectedRows: 1, lastInsertId: null), 1)
+    var mismatch: Bool = false
+    try {
+        expectAffected(DbResult(affectedRows: 2, lastInsertId: null), 1)
+    }
+    catch error {
+        mismatch = error.message.contains("DbAffectedRows")
+    }
+    assert mismatch
+    var unsupported: Bool = false
+    try {
+        expectAffected(DbResult(affectedRows: null, lastInsertId: null), 0)
+    }
+    catch error {
+        unsupported = error.message.contains("DbAffectedRows")
+    }
+    assert unsupported
+}

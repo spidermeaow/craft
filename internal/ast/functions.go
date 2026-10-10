@@ -2,7 +2,7 @@ package ast
 
 import "strings"
 
-type Import struct{ Alias, Dependency string }
+type Import struct{ Kind, Alias, Dependency string }
 
 // Fn<Return,Parameter,...> is an immutable, non-capturing function type.
 func FunctionType(result Type, params []Type) Type {

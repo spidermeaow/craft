@@ -35,3 +35,27 @@ func TestFormatRejectsMalformedSource(t *testing.T) {
 		t.Fatal("accepted malformed source")
 	}
 }
+
+func TestRev41FormatMultilineModuleIsIdempotent(t *testing.T) {
+	source := "module pages.excel\nimport module data \"models.sheet\"\nexport func value(\n first: Int,\n second: Int,\n): Int {\n return first +\n second\n}\n"
+	once, err := Format("page.craft", source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	twice, err := Format("page.craft", once)
+	if err != nil || once != twice {
+		t.Fatalf("non-idempotent: %v\n%s\n%s", err, once, twice)
+	}
+}
+
+func TestRev41FormatMemberCallAcrossNewline(t *testing.T) {
+	source := "func main(){var fields:Int[]=[];fields.append\n(\n1,\n)}"
+	once, err := Format("member-call.craft", source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	twice, err := Format("member-call.craft", once)
+	if err != nil || once != twice {
+		t.Fatalf("non-idempotent: %v\n%s\n%s", err, once, twice)
+	}
+}

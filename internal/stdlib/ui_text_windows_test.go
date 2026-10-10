@@ -22,9 +22,9 @@ func TestTextInputValueLimits(t *testing.T) {
 
 func TestFocusableOrderIncludesInputs(t *testing.T) {
 	root := &UiNode{kind: "Column", id: "root", children: []*UiNode{
-		{kind: "Button", id: "save"},
-		{kind: "TextInput", id: "name"},
-		{kind: "ScrollView", id: "scroll", children: []*UiNode{{kind: "TextInput", id: "notes"}}},
+		{kind: "Button", id: "save", tabStop: true},
+		{kind: "TextInput", id: "name", tabStop: true},
+		{kind: "ScrollView", id: "scroll", children: []*UiNode{{kind: "TextInput", id: "notes", tabStop: true}}},
 	}}
 	var ids []string
 	focusableIDs(root, &ids)

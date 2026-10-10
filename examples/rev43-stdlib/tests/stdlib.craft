@@ -1,0 +1,18 @@
+test "encoding and crypto round trip" {
+    let value: Bytes = std.bytes.fromArray([0, 255, 67])
+    let encoded: String = std.encoding.base64Encode(value)
+    assert std.crypto.secureEqual(std.encoding.base64Decode(encoded), value)
+    assert std.crypto.secureEqual(std.encoding.hexDecode(std.encoding.hexEncode(value)), value)
+}
+
+test "URL and regex Unicode semantics" {
+    let query: String = std.url.encode("a b+ไทย")
+    assert std.url.decode(query) == "a b+ไทย"
+    if let found = std.regex.find("[0-9]+", "ไทย12") {
+        assert found.start == 3
+        assert found.end == 5
+    }
+    else {
+        assert false
+    }
+}

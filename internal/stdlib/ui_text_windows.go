@@ -12,11 +12,15 @@ import (
 
 const (
 	wmSetFocus            = 0x0007
+	wmGetText             = 0x000D
+	wmGetTextLength       = 0x000E
 	wmChar                = 0x0102
 	wmImeStartComposition = 0x010D
 	wmImeEndComposition   = 0x010E
 	wmNcDestroy           = 0x0082
 	wmSetFont             = 0x0030
+	wmCtlColorEdit        = 0x0133
+	wmCtlColorStatic      = 0x0138
 	emLimitText           = 0x00C5
 	emSetCueBanner        = 0x1501
 	enChange              = 0x0300
@@ -28,16 +32,18 @@ const (
 	swShow                = 5
 	gwlpWndProc           = ^uintptr(3) // -4
 	maxInputUnits         = 1024
+	swpNoZOrder           = 0x0004
+	swpNoActivate         = 0x0010
+	swpNoCopyBits         = 0x0100
 )
 
 var (
 	uiTextSetWindowLong = uiUser32.NewProc("SetWindowLongPtrW")
 	uiTextCallWindow    = uiUser32.NewProc("CallWindowProcW")
 	uiTextSendMessage   = uiUser32.NewProc("SendMessageW")
-	uiTextGetLength     = uiUser32.NewProc("GetWindowTextLengthW")
-	uiTextGetText       = uiUser32.NewProc("GetWindowTextW")
 	uiTextShowWindow    = uiUser32.NewProc("ShowWindow")
 	uiTextEnableWindow  = uiUser32.NewProc("EnableWindow")
+	uiTextSetBkColor    = uiGdi32.NewProc("SetBkColor")
 	uiTextSetRegion     = uiUser32.NewProc("SetWindowRgn")
 	uiTextCreateRegion  = uiGdi32.NewProc("CreateRectRgn")
 	uiTextWndProc       = syscall.NewCallback(textInputProcedure)
@@ -49,15 +55,40 @@ var (
 )
 
 type nativeTextInput struct {
-	owner          *windowsState
-	hwnd           uintptr
-	oldProc        uintptr
-	id             string
-	placeholder    string
-	accessibleName string
-	lastText       string
-	composing      bool
-	updating       bool
+	owner               *windowsState
+	hwnd                uintptr
+	oldProc             uintptr
+	id                  string
+	placeholder         string
+	accessibleName      string
+	lastText            string
+	composing           bool
+	updating            bool
+	disabled            bool
+	fill                uint32
+	fillBrush           uintptr
+	shown               bool
+	positioned          bool
+	x, y, width, height int32
+	clip                windowsRect
+}
+
+func (input *nativeTextInput) setFill(node *UiNode) {
+	fill := uint32(0xffffffff)
+	if node.customSurface {
+		fill = node.surfaceFill
+	}
+	if input.fillBrush != 0 && input.fill == fill {
+		return
+	}
+	if input.fillBrush != 0 {
+		uiDeleteObject.Call(input.fillBrush)
+	}
+	input.fill = fill
+	input.fillBrush, _, _ = uiCreateBrush.Call(gdiColor(fill))
+	if input.hwnd != 0 {
+		uiInvalidateRect.Call(input.hwnd, 0, 1)
+	}
 }
 
 func collectInputs(n *UiNode, result map[string]*UiNode) {
@@ -83,21 +114,28 @@ func (w *windowsState) reconcileInputs(root *UiNode) error {
 			input.updating = true
 			w.clearInputAccessibleName(input.hwnd)
 			uiDestroyWindow.Call(input.hwnd)
+			if input.fillBrush != 0 {
+				uiDeleteObject.Call(input.fillBrush)
+			}
 			uiTextWindows.Delete(input.hwnd)
 			delete(w.inputs, id)
 		}
 	}
 	for id, node := range wanted {
 		if input := w.inputs[id]; input != nil {
+			input.setFill(node)
 			if input.accessibleName != node.accessibleName {
 				w.clearInputAccessibleName(input.hwnd)
 				w.setInputAccessibleName(input.hwnd, node.accessibleName)
 				input.accessibleName = node.accessibleName
 			}
-			if node.disabled {
-				uiTextEnableWindow.Call(input.hwnd, 0)
-			} else {
-				uiTextEnableWindow.Call(input.hwnd, 1)
+			if input.disabled != node.disabled {
+				if node.disabled {
+					uiTextEnableWindow.Call(input.hwnd, 0)
+				} else {
+					uiTextEnableWindow.Call(input.hwnd, 1)
+				}
+				input.disabled = node.disabled
 			}
 			if input.placeholder != node.placeholder {
 				input.placeholder = node.placeholder
@@ -111,13 +149,22 @@ func (w *windowsState) reconcileInputs(root *UiNode) error {
 		initial, _ := syscall.UTF16PtrFromString(node.text)
 		class, _ := syscall.UTF16PtrFromString("EDIT")
 		module, _, _ := uiModuleHandle.Call(0)
-		hwnd, _, err := uiCreateWindow.Call(0, uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(initial)), wsChild|wsVisible|wsTabStop|wsBorder|esAutoHScroll, 0, 0, 1, 1, w.hwnd, 0, module, 0)
+		// Keep the child hidden until positionInputs has assigned its final box and clip.
+		style := uintptr(wsChild | wsTabStop | esAutoHScroll)
+		if !node.customSurface {
+			style |= wsBorder
+		}
+		hwnd, _, err := uiCreateWindow.Call(0, uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(initial)), style, 0, 0, 1, 1, w.hwnd, 0, module, 0)
 		if hwnd == 0 {
 			return fmt.Errorf("UiUnavailable: create text input: %v", err)
 		}
-		input := &nativeTextInput{owner: w, hwnd: hwnd, id: id, placeholder: node.placeholder, accessibleName: node.accessibleName, lastText: node.text}
+		input := &nativeTextInput{owner: w, hwnd: hwnd, id: id, placeholder: node.placeholder, accessibleName: node.accessibleName, lastText: node.text, disabled: node.disabled}
+		input.setFill(node)
 		old, _, setErr := uiTextSetWindowLong.Call(hwnd, gwlpWndProc, uiTextWndProc)
 		if old == 0 {
+			if input.fillBrush != 0 {
+				uiDeleteObject.Call(input.fillBrush)
+			}
 			uiDestroyWindow.Call(hwnd)
 			return fmt.Errorf("UiUnavailable: subclass text input: %v", setErr)
 		}
@@ -143,6 +190,9 @@ func (w *windowsState) destroyInputs() {
 		input.updating = true
 		w.clearInputAccessibleName(input.hwnd)
 		uiDestroyWindow.Call(input.hwnd)
+		if input.fillBrush != 0 {
+			uiDeleteObject.Call(input.fillBrush)
+		}
 		uiTextWindows.Delete(input.hwnd)
 		delete(w.inputs, id)
 	}
@@ -227,12 +277,13 @@ func (input *nativeTextInput) setPlaceholder(value string) {
 }
 
 func (input *nativeTextInput) text() string {
-	length, _, _ := uiTextGetLength.Call(input.hwnd)
+	// Read the live EDIT contents for change and submit events.
+	length, _, _ := uiTextSendMessage.Call(input.hwnd, wmGetTextLength, 0, 0)
 	if length > maxInputUnits {
 		length = maxInputUnits
 	}
 	buffer := make([]uint16, int(length)+1)
-	uiTextGetText.Call(input.hwnd, uintptr(len(buffer)), uintptr(unsafe.Pointer(&buffer[0])))
+	uiTextSendMessage.Call(input.hwnd, wmGetText, uintptr(len(buffer)), uintptr(unsafe.Pointer(&buffer[0])))
 	return syscall.UTF16ToString(buffer)
 }
 
@@ -306,8 +357,35 @@ func textInputProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintpt
 			input.changed()
 		}
 		return result
+	case wmLeftButtonDown:
+		if grid := gridEditorBoxForInput(w.layout, input.id); grid != nil {
+			w.gridDragID = grid.node.id
+			w.gridDragAnchorRow, w.gridDragRow = grid.node.editorRow, grid.node.editorRow
+			w.gridDragAnchorColumn, w.gridDragColumn = grid.node.editorColumn, grid.node.editorColumn
+		}
+	case wmMouseMove:
+		if w.gridDragID != "" && wParam&1 != 0 {
+			x := w.logical(int64(input.x) + int64(int16(lParam)))
+			y := w.logical(int64(input.y) + int64(int16(lParam>>16)))
+			if w.dragGridTo(x, y) {
+				uiSetCapture.Call(w.hwnd)
+				return 0
+			}
+		}
+	case wmLeftButtonUp:
+		if w.gridDragID != "" {
+			w.gridDragID = ""
+		}
 	case wmKeyDown, wmSysKeyDown:
 		w.emit(uiEvent{kind: "KeyPressed", nodeID: input.id, key: int64(wParam), mod: keyModifiers()})
+		if !input.composing && keyModifiers()&1 != 0 && (wParam == 0x25 || wParam == 0x26 || wParam == 0x27 || wParam == 0x28) {
+			if grid := gridEditorBoxForInput(w.layout, input.id); grid != nil {
+				w.focusNode(grid.node.id)
+				if w.gridNavigate(grid, wParam) {
+					return 0
+				}
+			}
+		}
 		if !input.composing && w.invokeShortcut(wParam, lParam, true) {
 			return 0
 		}
@@ -330,6 +408,21 @@ func textInputProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintpt
 	}
 	r, _, _ := uiTextCallWindow.Call(input.oldProc, hwnd, uintptr(msg), wParam, lParam)
 	return r
+}
+
+func gridEditorBoxForInput(box *uiBox, inputID string) *uiBox {
+	if box == nil {
+		return nil
+	}
+	if box.node.kind == "VirtualGrid" && box.node.hasGridEditor && len(box.children) > 0 && box.children[len(box.children)-1].node.id == inputID {
+		return box
+	}
+	for _, child := range box.children {
+		if found := gridEditorBoxForInput(child, inputID); found != nil {
+			return found
+		}
+	}
+	return nil
 }
 
 func nodeBox(box *uiBox, id string) *uiBox {
@@ -377,7 +470,7 @@ func hasFocusable(n *UiNode, id string) bool {
 	if n == nil || id == "" {
 		return false
 	}
-	if n.id == id && (n.kind == "Button" || n.kind == "TextInput") && !n.disabled {
+	if n.id == id && (n.kind == "Button" || n.kind == "TextInput" || n.kind == "VirtualGrid") && !n.disabled {
 		return true
 	}
 	for _, draw := range n.draws {
@@ -397,7 +490,7 @@ func firstFocusable(n *UiNode) string {
 	if n == nil {
 		return ""
 	}
-	if (n.kind == "Button" || n.kind == "TextInput") && n.tabStop && !n.disabled {
+	if (n.kind == "Button" || n.kind == "TextInput" || n.kind == "VirtualGrid") && n.tabStop && !n.disabled {
 		return n.id
 	}
 	for _, draw := range n.draws {
@@ -417,7 +510,7 @@ func focusableIDs(n *UiNode, ids *[]string) {
 	if n == nil {
 		return
 	}
-	if (n.kind == "Button" || n.kind == "TextInput") && n.tabStop && !n.disabled {
+	if (n.kind == "Button" || n.kind == "TextInput" || n.kind == "VirtualGrid") && n.tabStop && !n.disabled {
 		*ids = append(*ids, n.id)
 	}
 	for _, draw := range n.draws {
@@ -437,6 +530,14 @@ func (w *windowsState) focusNode(id string) {
 	if id == w.focused {
 		if id != "" {
 			w.scrollFocusIntoView(id)
+			if input := w.inputs[id]; input != nil {
+				// The retained focus ID can outlive native focus changes caused by
+				// a tree update or another child window receiving focus.
+				focused, _, _ := uiGetFocus.Call()
+				if focused != input.hwnd {
+					uiSetFocus.Call(input.hwnd)
+				}
+			}
 		}
 		return
 	}
@@ -463,6 +564,12 @@ func (w *windowsState) scrollFocusIntoView(id string) {
 			return false, 0, 0, 0, 0
 		}
 		if box.node.id == id {
+			if box.node.kind == "VirtualGrid" {
+				if x, y, width, height, ok := virtualGridSelectionRect(box); ok {
+					return true, x, y, width, height
+				}
+				return true, box.x, box.y, min64(box.w, box.node.columnWidth), min64(box.h, box.node.rowHeight)
+			}
 			return true, box.x, box.y, box.w, box.h
 		}
 		for _, draw := range box.node.draws {
@@ -475,7 +582,7 @@ func (w *windowsState) scrollFocusIntoView(id string) {
 			if !found {
 				continue
 			}
-			if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+			if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 				var dx, dy int64
 				if x < box.x {
 					dx = x - box.x
@@ -503,6 +610,7 @@ func (w *windowsState) scrollFocusIntoView(id string) {
 }
 
 func (w *windowsState) advanceFocus(reverse bool) {
+	w.focusVisible = true
 	var ids []string
 	focusableIDs(w.activeFocusRoot(), &ids)
 	if len(ids) == 0 {
@@ -534,12 +642,22 @@ func (w *windowsState) positionInputs() {
 	for id, input := range w.inputs {
 		box, visible := visibleInputBox(w.layout, id, inputClip{0, 0, w.width, w.height})
 		if box == nil || box.w <= 0 || box.h <= 0 || visible.right <= visible.left || visible.bottom <= visible.top {
-			uiTextShowWindow.Call(input.hwnd, swHide)
+			hideNativeInput(input)
 			continue
 		}
 		x, y, width, height := box.x, box.y, box.w, box.h
+		if box.node.customSurface {
+			x += 10
+			y += 6
+			width -= 20
+			height -= 12
+			if width < 1 || height < 1 {
+				hideNativeInput(input)
+				continue
+			}
+		}
 		if x+width <= 0 || y+height <= 0 || x >= w.width || y >= w.height {
-			uiTextShowWindow.Call(input.hwnd, swHide)
+			hideNativeInput(input)
 			continue
 		}
 		scale := w.scale
@@ -548,18 +666,47 @@ func (w *windowsState) positionInputs() {
 		}
 		px, py := int32(float64(x)*scale), int32(float64(y)*scale)
 		pw, ph := int32(float64(width)*scale), int32(float64(height)*scale)
-		uiSetWindowPos.Call(input.hwnd, 0, uintptr(px), uintptr(py), uintptr(pw), uintptr(ph), 0x0004|0x0010)
-		uiTextShowWindow.Call(input.hwnd, swShow)
-		// Win32 owns this region after a successful SetWindowRgn call.
-		clipLeft := int32(float64(visible.left-x) * scale)
-		clipTop := int32(float64(visible.top-y) * scale)
-		clipRight := int32(float64(visible.right-x) * scale)
-		clipBottom := int32(float64(visible.bottom-y) * scale)
-		region, _, _ := uiTextCreateRegion.Call(uintptr(clipLeft), uintptr(clipTop), uintptr(clipRight), uintptr(clipBottom))
-		if region != 0 {
-			if ok, _, _ := uiTextSetRegion.Call(input.hwnd, region, 1); ok == 0 {
-				uiDeleteObject.Call(region)
+		clip := windowsRect{
+			left:   int32(float64(max64(0, visible.left-x)) * scale),
+			top:    int32(float64(max64(0, visible.top-y)) * scale),
+			right:  int32(float64(min64(width, visible.right-x)) * scale),
+			bottom: int32(float64(min64(height, visible.bottom-y)) * scale),
+		}
+		if clip.right <= clip.left || clip.bottom <= clip.top {
+			hideNativeInput(input)
+			continue
+		}
+		moved := !input.positioned || input.x != px || input.y != py || input.width != pw || input.height != ph
+		clipChanged := !input.positioned || input.clip != clip
+		if moved {
+			// A scrolling EDIT must paint its new content; copied pixels can leave text from the old row.
+			uiSetWindowPos.Call(input.hwnd, 0, uintptr(px), uintptr(py), uintptr(pw), uintptr(ph), swpNoZOrder|swpNoActivate|swpNoCopyBits)
+		}
+		if clipChanged {
+			// Win32 owns this region after a successful SetWindowRgn call.
+			region, _, _ := uiTextCreateRegion.Call(uintptr(clip.left), uintptr(clip.top), uintptr(clip.right), uintptr(clip.bottom))
+			if region != 0 {
+				if ok, _, _ := uiTextSetRegion.Call(input.hwnd, region, 1); ok == 0 {
+					uiDeleteObject.Call(region)
+				}
 			}
 		}
+		if !input.shown {
+			uiTextShowWindow.Call(input.hwnd, swShow)
+			input.shown = true
+		}
+		if moved || clipChanged {
+			uiInvalidateRect.Call(input.hwnd, 0, 1)
+		}
+		input.x, input.y, input.width, input.height = px, py, pw, ph
+		input.clip, input.positioned = clip, true
 	}
+}
+
+func hideNativeInput(input *nativeTextInput) {
+	if input.shown {
+		uiTextShowWindow.Call(input.hwnd, swHide)
+		input.shown = false
+	}
+	input.positioned = false
 }

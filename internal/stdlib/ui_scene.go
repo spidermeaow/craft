@@ -15,6 +15,15 @@ type UiNode struct {
 	children                                                                        []*UiNode
 	draws                                                                           []UiDraw
 	itemCount, rowHeight, firstIndex                                                int64
+	columnCount, columnWidth, firstColumn, loadedColumns                            int64
+	selectedRow, selectedColumn                                                     int64
+	hasGridSelection                                                                bool
+	rangeAnchorRow, rangeAnchorColumn                                               int64
+	hasGridRange                                                                    bool
+	rangeFill, rangeBorder                                                          uint32
+	customRangeStyle                                                                bool
+	editorRow, editorColumn                                                         int64
+	hasGridEditor                                                                   bool
 	width, height, minWidth, minHeight, maxWidth, maxHeight, weight, alignX, alignY int64
 	padding, gap, ratio, splitMinFirst, splitMinSecond                              int64
 	customSpacing                                                                   bool
@@ -40,6 +49,7 @@ type uiBox struct {
 	wheelX, wheelY   int64
 	hasScroll        bool
 	hasAdaptive      bool
+	gridCell         bool
 	measure          uiTextMeasure
 	lines            []string
 	lineHeight       int64
@@ -49,6 +59,62 @@ type uiBox struct {
 const virtualOverscan int64 = 3
 
 func virtualExtent(n *UiNode) int64 { return n.itemCount * n.rowHeight }
+
+func gridCellCount(n *UiNode) int {
+	if n.hasGridEditor {
+		if len(n.children) == 0 {
+			return 0
+		}
+		return len(n.children) - 1
+	}
+	return len(n.children)
+}
+
+func virtualGridRange(b *uiBox) (int64, int64, int64, int64) {
+	if b == nil || b.node.kind != "VirtualGrid" || b.node.itemCount == 0 || b.node.columnCount == 0 {
+		return 0, 0, 0, 0
+	}
+	n := b.node
+	firstRow := max64(0, b.scrollY/n.rowHeight-virtualOverscan)
+	endRow := min64(n.itemCount, (b.scrollY+b.h+n.rowHeight-1)/n.rowHeight+virtualOverscan)
+	firstColumn := max64(0, b.scrollX/n.columnWidth-virtualOverscan)
+	endColumn := min64(n.columnCount, (b.scrollX+b.w+n.columnWidth-1)/n.columnWidth+virtualOverscan)
+	return firstRow, endRow, firstColumn, endColumn
+}
+
+func virtualGridSelectionRect(b *uiBox) (int64, int64, int64, int64, bool) {
+	if b == nil || b.node.kind != "VirtualGrid" || !b.node.hasGridSelection {
+		return 0, 0, 0, 0, false
+	}
+	n := b.node
+	x := b.x + n.selectedColumn*n.columnWidth - b.scrollX
+	y := b.y + n.selectedRow*n.rowHeight - b.scrollY
+	if x+n.columnWidth <= b.x || y+n.rowHeight <= b.y || x >= b.x+b.w || y >= b.y+b.h {
+		return 0, 0, 0, 0, false
+	}
+	return x, y, n.columnWidth, n.rowHeight, true
+}
+
+func virtualGridRangeRect(b *uiBox) (int64, int64, int64, int64, bool) {
+	if b == nil || b.node.kind != "VirtualGrid" || !b.node.hasGridRange {
+		return 0, 0, 0, 0, false
+	}
+	n := b.node
+	if n.rangeAnchorRow == n.selectedRow && n.rangeAnchorColumn == n.selectedColumn {
+		return 0, 0, 0, 0, false
+	}
+	firstRow, lastRow := min64(n.rangeAnchorRow, n.selectedRow), max64(n.rangeAnchorRow, n.selectedRow)
+	firstColumn, lastColumn := min64(n.rangeAnchorColumn, n.selectedColumn), max64(n.rangeAnchorColumn, n.selectedColumn)
+	x := b.x + firstColumn*n.columnWidth - b.scrollX
+	y := b.y + firstRow*n.rowHeight - b.scrollY
+	width, height := (lastColumn-firstColumn+1)*n.columnWidth, (lastRow-firstRow+1)*n.rowHeight
+	if x+width <= b.x || y+height <= b.y || x >= b.x+b.w || y >= b.y+b.h {
+		return 0, 0, 0, 0, false
+	}
+	left, top := max64(x, b.x), max64(y, b.y)
+	right, bottom := min64(x+width, b.x+b.w), min64(y+height, b.y+b.h)
+	return left, top, right - left, bottom - top, true
+}
 
 func virtualRange(b *uiBox) (int64, int64) {
 	if b == nil || b.node.kind != "VirtualList" || b.node.itemCount == 0 || b.h <= 0 {
@@ -125,10 +191,30 @@ func validateTree(root *UiNode) error {
 				return fmt.Errorf("UiTreeError: invalid VirtualList range or dimensions")
 			}
 		}
+		if n.kind == "VirtualGrid" {
+			cellCount := int64(gridCellCount(n))
+			if n.itemCount < 1 || n.itemCount > 100000000 || n.columnCount < 1 || n.columnCount > 1000000 || n.rowHeight < 16 || n.rowHeight > 8192 || n.columnWidth < 16 || n.columnWidth > 8192 || n.itemCount > (1<<40)/n.rowHeight || n.columnCount > (1<<40)/n.columnWidth || n.firstIndex < 0 || n.firstIndex > n.itemCount || n.firstColumn < 0 || n.firstColumn > n.columnCount || n.loadedColumns < 0 || n.loadedColumns > n.columnCount-n.firstColumn || len(n.children) > 1025 || (n.loadedColumns == 0 && cellCount != 0) || (n.loadedColumns > 0 && cellCount%n.loadedColumns != 0) || (n.loadedColumns > 0 && cellCount/n.loadedColumns > n.itemCount-n.firstIndex) {
+				return fmt.Errorf("UiTreeError: invalid VirtualGrid range or dimensions")
+			}
+			for _, child := range n.children[:cellCount] {
+				if child.kind != "Text" {
+					return fmt.Errorf("UiTreeError: VirtualGrid cells require Text nodes")
+				}
+			}
+			if n.hasGridEditor && (len(n.children) == 0 || n.editorRow < 0 || n.editorRow >= n.itemCount || n.editorColumn < 0 || n.editorColumn >= n.columnCount || n.children[len(n.children)-1].kind != "TextInput" || n.children[len(n.children)-1].disabled) {
+				return fmt.Errorf("UiTreeError: VirtualGrid editor requires an enabled TextInput at a valid cell")
+			}
+			if n.hasGridSelection && (n.selectedRow < 0 || n.selectedRow >= n.itemCount || n.selectedColumn < 0 || n.selectedColumn >= n.columnCount) {
+				return fmt.Errorf("UiTreeError: VirtualGrid selection is outside the grid")
+			}
+			if n.hasGridRange && (!n.hasGridSelection || n.rangeAnchorRow < 0 || n.rangeAnchorRow >= n.itemCount || n.rangeAnchorColumn < 0 || n.rangeAnchorColumn >= n.columnCount) {
+				return fmt.Errorf("UiTreeError: VirtualGrid range is outside the grid")
+			}
+		}
 		if n.kind == "Grid" && (n.gridMinCell < 1 || n.gridMinCell > 8192 || n.gridMaxColumns < 1 || n.gridMaxColumns > 64 || n.gridGap < 0 || n.gridGap > 256) {
 			return fmt.Errorf("UiTreeError: invalid Grid constraints")
 		}
-		if n.kind != "Row" && n.kind != "Column" && n.kind != "Panel" && n.kind != "SplitView" && n.kind != "ScrollView" && n.kind != "VirtualList" && n.kind != "Grid" && len(n.children) != 0 {
+		if n.kind != "Row" && n.kind != "Column" && n.kind != "Panel" && n.kind != "SplitView" && n.kind != "ScrollView" && n.kind != "VirtualList" && n.kind != "VirtualGrid" && n.kind != "Grid" && len(n.children) != 0 {
 			return fmt.Errorf("UiTreeError: leaf node has children")
 		}
 		for _, child := range n.children {
@@ -153,7 +239,7 @@ func cloneNode(n *UiNode) *UiNode {
 	if n == nil {
 		return nil
 	}
-	c := &UiNode{kind: n.kind, id: n.id, text: n.text, placeholder: n.placeholder, textUTF16: append([]uint16(nil), n.textUTF16...), itemCount: n.itemCount, rowHeight: n.rowHeight, firstIndex: n.firstIndex,
+	c := &UiNode{kind: n.kind, id: n.id, text: n.text, placeholder: n.placeholder, textUTF16: append([]uint16(nil), n.textUTF16...), itemCount: n.itemCount, rowHeight: n.rowHeight, firstIndex: n.firstIndex, columnCount: n.columnCount, columnWidth: n.columnWidth, firstColumn: n.firstColumn, loadedColumns: n.loadedColumns, selectedRow: n.selectedRow, selectedColumn: n.selectedColumn, hasGridSelection: n.hasGridSelection, rangeAnchorRow: n.rangeAnchorRow, rangeAnchorColumn: n.rangeAnchorColumn, hasGridRange: n.hasGridRange, rangeFill: n.rangeFill, rangeBorder: n.rangeBorder, customRangeStyle: n.customRangeStyle, editorRow: n.editorRow, editorColumn: n.editorColumn, hasGridEditor: n.hasGridEditor,
 		width: n.width, height: n.height, minWidth: n.minWidth, minHeight: n.minHeight, maxWidth: n.maxWidth, maxHeight: n.maxHeight, weight: n.weight, alignX: n.alignX, alignY: n.alignY, padding: n.padding, gap: n.gap, fontSize: n.fontSize, fontWeight: n.fontWeight, textColor: n.textColor, customTextStyle: n.customTextStyle, wrapText: n.wrapText, gridMinCell: n.gridMinCell, gridMaxColumns: n.gridMaxColumns, gridGap: n.gridGap, surfaceFill: n.surfaceFill, surfaceBorder: n.surfaceBorder, surfaceRadius: n.surfaceRadius, customSurface: n.customSurface,
 		ratio: n.ratio, splitMinFirst: n.splitMinFirst, splitMinSecond: n.splitMinSecond, customSpacing: n.customSpacing,
 		tabStop: n.tabStop, disabled: n.disabled, accessibleName: n.accessibleName, accessibleRole: n.accessibleRole}
@@ -167,6 +253,18 @@ func cloneNode(n *UiNode) *UiNode {
 }
 
 type uiTextMeasure func(*UiNode) (int64, int64)
+
+func measuredLeafSize(n *UiNode, measure uiTextMeasure) (int64, int64) {
+	w, h := measure(n)
+	switch n.kind {
+	case "TextInput":
+		return max64(240, w+20), max64(34, h+12)
+	case "Button":
+		return w + 20, max64(32, h+12)
+	default:
+		return w + 4, max64(24, h+4)
+	}
+}
 
 const uiPad, uiGap int64 = 6, 4
 
@@ -196,30 +294,14 @@ func applyPreferredSize(b *uiBox) {
 }
 
 func measureNode(n *UiNode, measure uiTextMeasure) *uiBox {
-	b := &uiBox{node: n, hasScroll: n.kind == "ScrollView" || n.kind == "VirtualList", hasAdaptive: n.kind == "Grid" || n.wrapText, measure: measure}
+	b := &uiBox{node: n, hasScroll: n.kind == "ScrollView" || n.kind == "VirtualList" || n.kind == "VirtualGrid", hasAdaptive: n.kind == "Grid" || n.wrapText, measure: measure}
 	switch n.kind {
 	case "Canvas":
 		b.prefW, b.prefH = n.width, n.height
 		applyPreferredSize(b)
 		return b
 	case "Text", "Button", "TextInput":
-		b.prefW, b.prefH = measure(n)
-		if n.kind == "TextInput" {
-			b.prefW = max64(240, b.prefW+20)
-			b.prefH = max64(34, b.prefH+12)
-		} else if n.kind == "Button" {
-			b.prefW += 20
-			b.prefH += 12
-			if b.prefH < 32 {
-				b.prefH = 32
-			}
-		} else {
-			b.prefW += 4
-			b.prefH += 4
-			if b.prefH < 24 {
-				b.prefH = 24
-			}
-		}
+		b.prefW, b.prefH = measuredLeafSize(n, measure)
 		if n.kind == "Text" && n.wrapText {
 			b.lineHeight = max64(1, b.prefH-4)
 			b.prefW = 1
@@ -232,6 +314,11 @@ func measureNode(n *UiNode, measure uiTextMeasure) *uiBox {
 		b.children = append(b.children, measured)
 		b.hasScroll = b.hasScroll || measured.hasScroll
 		b.hasAdaptive = b.hasAdaptive || measured.hasAdaptive
+	}
+	if n.kind == "VirtualGrid" {
+		b.prefW, b.prefH = min64(640, n.columnCount*n.columnWidth), min64(320, n.itemCount*n.rowHeight)
+		applyPreferredSize(b)
+		return b
 	}
 	if n.kind == "VirtualList" {
 		for _, child := range b.children {
@@ -374,10 +461,10 @@ func reflowBox(b *uiBox, width int64) {
 			if child.node.width > 0 || child.node.height > 0 || child.node.minWidth > 0 || child.node.minHeight > 0 || child.node.weight > 0 || child.node.maxWidth > 0 || child.node.maxHeight > 0 || child.node.alignX > 0 || child.node.alignY > 0 {
 				custom = true
 			}
-			if child.node.kind == "ScrollView" || child.node.kind == "VirtualList" {
+			if child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.kind == "VirtualGrid" {
 				scrolls++
 			}
-			if child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.wrapText {
+			if child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.kind == "VirtualGrid" || child.node.wrapText {
 				flexible++
 			}
 		}
@@ -395,7 +482,7 @@ func reflowBox(b *uiBox, width int64) {
 				}
 				if flexible > 0 {
 					for i, child := range b.children {
-						if (scrolls > 0 && (child.node.kind == "ScrollView" || child.node.kind == "VirtualList")) || (scrolls == 0 && (child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || child.node.wrapText)) {
+						if (scrolls > 0 && (child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.kind == "VirtualGrid")) || (scrolls == 0 && (child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || child.node.wrapText)) {
 							widths[i] += extra / flexible
 						}
 					}
@@ -545,6 +632,21 @@ func placeNode(b *uiBox, x, y, w, h int64, overflow *int64) {
 		}
 		return
 	}
+	if b.node.kind == "VirtualGrid" {
+		n := b.node
+		b.scrollX = clamp64(b.scrollX, 0, max64(0, n.columnCount*n.columnWidth-w))
+		b.scrollY = clamp64(b.scrollY, 0, max64(0, n.itemCount*n.rowHeight-h))
+		for i, child := range b.children[:gridCellCount(n)] {
+			row := n.firstIndex + int64(i)/n.loadedColumns
+			column := n.firstColumn + int64(i)%n.loadedColumns
+			child.gridCell = true
+			placeNode(child, x+column*n.columnWidth-b.scrollX, y+row*n.rowHeight-b.scrollY, n.columnWidth, n.rowHeight, overflow)
+		}
+		if n.hasGridEditor {
+			placeNode(b.children[len(b.children)-1], x+n.editorColumn*n.columnWidth-b.scrollX, y+n.editorRow*n.rowHeight-b.scrollY, n.columnWidth, n.rowHeight, overflow)
+		}
+		return
+	}
 	if len(b.children) == 0 {
 		return
 	}
@@ -635,10 +737,10 @@ func placeNode(b *uiBox, x, y, w, h int64, overflow *int64) {
 		} else {
 			preferred += child.prefW
 		}
-		if child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || (b.node.kind == "Row" && child.node.wrapText) {
+		if child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.kind == "VirtualGrid" || (b.node.kind == "Row" && child.node.wrapText) {
 			flexible++
 		}
-		if child.node.kind == "ScrollView" || child.node.kind == "VirtualList" {
+		if child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.kind == "VirtualGrid" {
 			scrollViews++
 		}
 	}
@@ -652,7 +754,7 @@ func placeNode(b *uiBox, x, y, w, h int64, overflow *int64) {
 	cursor := int64(0)
 	for _, child := range b.children {
 		grow := int64(0)
-		if (scrollViews > 0 && (child.node.kind == "ScrollView" || child.node.kind == "VirtualList")) || (scrollViews == 0 && (child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || (b.node.kind == "Row" && child.node.wrapText))) {
+		if (scrollViews > 0 && (child.node.kind == "ScrollView" || child.node.kind == "VirtualList" || child.node.kind == "VirtualGrid")) || (scrollViews == 0 && (child.node.kind == "Row" || child.node.kind == "Column" || child.node.kind == "Panel" || child.node.kind == "Grid" || (b.node.kind == "Row" && child.node.wrapText))) {
 			grow = extra
 		}
 		if b.node.kind == "Column" {
@@ -798,7 +900,7 @@ func scrollOffsets(box *uiBox, offsets map[string][4]int64) {
 	if box == nil {
 		return
 	}
-	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 		offsets[box.node.id] = [4]int64{box.scrollX, box.scrollY, box.wheelX, box.wheelY}
 	}
 	for _, child := range box.children {
@@ -810,7 +912,7 @@ func restoreScroll(box *uiBox, offsets map[string][4]int64) {
 	if box == nil {
 		return
 	}
-	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 		if old, ok := offsets[box.node.id]; ok {
 			box.scrollX, box.scrollY, box.wheelX, box.wheelY = old[0], old[1], old[2], old[3]
 		}
@@ -829,7 +931,7 @@ func scrollAt(box *uiBox, x, y int64) *uiBox {
 			return found
 		}
 	}
-	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 		return box
 	}
 	return nil
@@ -841,13 +943,13 @@ func scrollChainAt(box *uiBox, x, y int64) []*uiBox {
 	}
 	for i := len(box.children) - 1; i >= 0; i-- {
 		if chain := scrollChainAt(box.children[i], x, y); len(chain) > 0 {
-			if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+			if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 				return append(chain, box)
 			}
 			return chain
 		}
 	}
-	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 		return []*uiBox{box}
 	}
 	return nil
@@ -857,7 +959,7 @@ func firstScroll(box *uiBox) *uiBox {
 	if box == nil || !box.hasScroll {
 		return nil
 	}
-	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" {
+	if box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 		return box
 	}
 	for _, child := range box.children {
@@ -872,7 +974,7 @@ func scrollByID(box *uiBox, id string) *uiBox {
 	if box == nil || !box.hasScroll || id == "" {
 		return nil
 	}
-	if (box.node.kind == "ScrollView" || box.node.kind == "VirtualList") && box.node.id == id {
+	if (box.node.kind == "ScrollView" || box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid") && box.node.id == id {
 		return box
 	}
 	for _, child := range box.children {
@@ -898,6 +1000,18 @@ func scrollBy(box *uiBox, dx, dy int64) bool {
 		box.scrollY = nextY
 		return true
 	}
+	if box.node.kind == "VirtualGrid" {
+		nextX := clamp64(box.scrollX+dx, 0, max64(0, box.node.columnCount*box.node.columnWidth-box.w))
+		nextY := clamp64(box.scrollY+dy, 0, max64(0, box.node.itemCount*box.node.rowHeight-box.h))
+		if nextX == box.scrollX && nextY == box.scrollY {
+			return false
+		}
+		for _, child := range box.children {
+			shiftBox(child, box.scrollX-nextX, box.scrollY-nextY)
+		}
+		box.scrollX, box.scrollY = nextX, nextY
+		return true
+	}
 	if box.node.kind != "ScrollView" || len(box.children) != 1 {
 		return false
 	}
@@ -916,7 +1030,7 @@ func scrollContentHeight(box *uiBox) int64 {
 	if box == nil {
 		return 0
 	}
-	if box.node.kind == "VirtualList" {
+	if box.node.kind == "VirtualList" || box.node.kind == "VirtualGrid" {
 		return virtualExtent(box.node)
 	}
 	if len(box.children) > 0 {
@@ -926,7 +1040,7 @@ func scrollContentHeight(box *uiBox) int64 {
 }
 
 func scrollbarThumb(box *uiBox) (int64, int64, int64, int64, bool) {
-	if box == nil || (box.node.kind != "ScrollView" && box.node.kind != "VirtualList") || box.w < 16 || box.h < 32 {
+	if box == nil || (box.node.kind != "ScrollView" && box.node.kind != "VirtualList" && box.node.kind != "VirtualGrid") || box.w < 16 || box.h < 32 {
 		return 0, 0, 0, 0, false
 	}
 	content := scrollContentHeight(box)
@@ -942,10 +1056,16 @@ func scrollbarThumb(box *uiBox) (int64, int64, int64, int64, bool) {
 }
 
 func horizontalScrollbarThumb(box *uiBox) (int64, int64, int64, int64, bool) {
-	if box == nil || box.node.kind != "ScrollView" || len(box.children) != 1 || box.w < 32 || box.h < 16 {
+	if box == nil || (box.node.kind != "ScrollView" && box.node.kind != "VirtualGrid") || box.w < 32 || box.h < 16 {
 		return 0, 0, 0, 0, false
 	}
-	content := box.children[0].w
+	content := box.node.columnCount * box.node.columnWidth
+	if box.node.kind == "ScrollView" {
+		if len(box.children) != 1 {
+			return 0, 0, 0, 0, false
+		}
+		content = box.children[0].w
+	}
 	if content <= box.w {
 		return 0, 0, 0, 0, false
 	}
@@ -1095,7 +1215,7 @@ func sameTree(a, b *UiNode) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
-	if a.kind != b.kind || a.id != b.id || a.text != b.text || a.placeholder != b.placeholder || a.itemCount != b.itemCount || a.rowHeight != b.rowHeight || a.firstIndex != b.firstIndex || a.textColor != b.textColor || a.customTextStyle != b.customTextStyle || a.wrapText != b.wrapText || a.surfaceFill != b.surfaceFill || a.surfaceBorder != b.surfaceBorder || a.surfaceRadius != b.surfaceRadius || a.customSurface != b.customSurface || a.tabStop != b.tabStop || a.disabled != b.disabled || a.accessibleName != b.accessibleName || a.accessibleRole != b.accessibleRole || !sameLayoutSpec(a, b) || !sameDraws(a.draws, b.draws) || len(a.children) != len(b.children) {
+	if a.kind != b.kind || a.id != b.id || a.text != b.text || a.placeholder != b.placeholder || a.itemCount != b.itemCount || a.rowHeight != b.rowHeight || a.firstIndex != b.firstIndex || a.columnCount != b.columnCount || a.columnWidth != b.columnWidth || a.firstColumn != b.firstColumn || a.loadedColumns != b.loadedColumns || a.selectedRow != b.selectedRow || a.selectedColumn != b.selectedColumn || a.hasGridSelection != b.hasGridSelection || a.rangeAnchorRow != b.rangeAnchorRow || a.rangeAnchorColumn != b.rangeAnchorColumn || a.hasGridRange != b.hasGridRange || a.rangeFill != b.rangeFill || a.rangeBorder != b.rangeBorder || a.customRangeStyle != b.customRangeStyle || a.editorRow != b.editorRow || a.editorColumn != b.editorColumn || a.hasGridEditor != b.hasGridEditor || a.textColor != b.textColor || a.customTextStyle != b.customTextStyle || a.wrapText != b.wrapText || a.surfaceFill != b.surfaceFill || a.surfaceBorder != b.surfaceBorder || a.surfaceRadius != b.surfaceRadius || a.customSurface != b.customSurface || a.tabStop != b.tabStop || a.disabled != b.disabled || a.accessibleName != b.accessibleName || a.accessibleRole != b.accessibleRole || !sameLayoutSpec(a, b) || !sameDraws(a.draws, b.draws) || len(a.children) != len(b.children) {
 		return false
 	}
 	for i := range a.children {
@@ -1110,15 +1230,29 @@ func sameLayoutSpec(a, b *UiNode) bool {
 	return a.width == b.width && a.height == b.height && a.minWidth == b.minWidth && a.minHeight == b.minHeight && a.maxWidth == b.maxWidth && a.maxHeight == b.maxHeight && a.weight == b.weight && a.alignX == b.alignX && a.alignY == b.alignY && a.padding == b.padding && a.gap == b.gap && a.customSpacing == b.customSpacing && a.ratio == b.ratio && a.splitMinFirst == b.splitMinFirst && a.splitMinSecond == b.splitMinSecond && a.fontSize == b.fontSize && a.fontWeight == b.fontWeight && a.gridMinCell == b.gridMinCell && a.gridMaxColumns == b.gridMaxColumns && a.gridGap == b.gridGap && a.wrapText == b.wrapText
 }
 
-// rebindLayout reuses geometry only after the caller checks changed leaf metrics.
+type uiChange struct {
+	box *uiBox
+	old *UiNode
+}
+
+// rebindLayout keeps the older helper for existing callers. The Windows host
+// uses the detailed variant to invalidate old and new paint bounds.
 func rebindLayout(box *uiBox, next *UiNode, changed *[]*uiBox) bool {
-	if box != nil && box.hasAdaptive {
+	var details []uiChange
+	if !rebindLayoutDetailed(box, next, &details) {
 		return false
 	}
+	for _, change := range details {
+		*changed = append(*changed, change.box)
+	}
+	return true
+}
+
+func rebindLayoutDetailed(box *uiBox, next *UiNode, changed *[]uiChange) bool {
 	if containsVirtualList(next) {
 		return false
 	}
-	if box == nil || next == nil || box.node.kind != next.kind || box.node.id != next.id || !sameLayoutSpec(box.node, next) || len(box.children) != len(next.children) {
+	if box == nil || next == nil || box.node.kind != next.kind || box.node.id != next.id || !sameLayoutSpec(box.node, next) || !sameVirtualGeometry(box.node, next) || len(box.children) != len(next.children) {
 		return false
 	}
 	for i, child := range box.children {
@@ -1128,8 +1262,8 @@ func rebindLayout(box *uiBox, next *UiNode, changed *[]*uiBox) bool {
 	}
 	var bind func(*uiBox, *UiNode)
 	bind = func(current *uiBox, node *UiNode) {
-		if current.node.text != node.text || current.node.textColor != node.textColor || current.node.customTextStyle != node.customTextStyle || current.node.surfaceFill != node.surfaceFill || current.node.surfaceBorder != node.surfaceBorder || current.node.surfaceRadius != node.surfaceRadius || current.node.customSurface != node.customSurface || current.node.disabled != node.disabled || !sameDraws(current.node.draws, node.draws) {
-			*changed = append(*changed, current)
+		if current.node.text != node.text || current.node.textColor != node.textColor || current.node.customTextStyle != node.customTextStyle || current.node.surfaceFill != node.surfaceFill || current.node.surfaceBorder != node.surfaceBorder || current.node.surfaceRadius != node.surfaceRadius || current.node.customSurface != node.customSurface || current.node.disabled != node.disabled || current.node.selectedRow != node.selectedRow || current.node.selectedColumn != node.selectedColumn || current.node.hasGridSelection != node.hasGridSelection || current.node.rangeAnchorRow != node.rangeAnchorRow || current.node.rangeAnchorColumn != node.rangeAnchorColumn || current.node.hasGridRange != node.hasGridRange || current.node.rangeFill != node.rangeFill || current.node.rangeBorder != node.rangeBorder || current.node.customRangeStyle != node.customRangeStyle || !sameDraws(current.node.draws, node.draws) {
+			*changed = append(*changed, uiChange{box: current, old: current.node})
 		}
 		current.node = node
 		for i, child := range current.children {
@@ -1156,7 +1290,12 @@ func containsVirtualList(n *UiNode) bool {
 }
 
 func sameShape(box *uiBox, next *UiNode) bool {
-	if box == nil || next == nil || box.node.kind != next.kind || box.node.id != next.id || !sameLayoutSpec(box.node, next) || len(box.children) != len(next.children) {
+	if box == nil || next == nil || box.node.kind != next.kind || box.node.id != next.id || !sameLayoutSpec(box.node, next) || !sameVirtualGeometry(box.node, next) || len(box.children) != len(next.children) {
+		return false
+	}
+	// Unchanged adaptive nodes can keep their measured geometry. A wrap text
+	// content change may alter line count at the current width, so relayout it.
+	if box.node.wrapText && (box.node.text != next.text || box.node.textColor != next.textColor || box.node.customTextStyle != next.customTextStyle) {
 		return false
 	}
 	for i, child := range box.children {
@@ -1165,4 +1304,11 @@ func sameShape(box *uiBox, next *UiNode) bool {
 		}
 	}
 	return true
+}
+
+func sameVirtualGeometry(a, b *UiNode) bool {
+	if a.kind != "VirtualGrid" {
+		return true
+	}
+	return a.itemCount == b.itemCount && a.rowHeight == b.rowHeight && a.firstIndex == b.firstIndex && a.columnCount == b.columnCount && a.columnWidth == b.columnWidth && a.firstColumn == b.firstColumn && a.loadedColumns == b.loadedColumns && a.editorRow == b.editorRow && a.editorColumn == b.editorColumn && a.hasGridEditor == b.hasGridEditor
 }

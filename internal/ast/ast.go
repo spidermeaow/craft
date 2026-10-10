@@ -44,6 +44,7 @@ func (t Type) Map() Type       { return Type("Map<String," + string(t) + ">") }
 func (t Type) Primitive() bool { return t == Int || t == Float || t == Bool || t == String }
 
 type Program struct {
+	Module    string
 	Imports   []Import
 	Structs   []*Struct
 	Functions []*Function

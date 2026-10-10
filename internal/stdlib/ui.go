@@ -27,11 +27,12 @@ type uiEvent struct {
 	x, y, width, height, key, mod int64
 	scale                         float64
 	firstIndex, endIndex          int64
+	firstColumn, endColumn        int64
 	at                            time.Time
 }
 
 func (e uiEvent) value() *rt.Struct {
-	return nativeStruct("UiEvent", e.kind, e.windowID, e.x, e.y, e.width, e.height, e.key, e.mod, e.scale, e.nodeID, e.firstIndex, e.endIndex, e.text)
+	return nativeStruct("UiEvent", e.kind, e.windowID, e.x, e.y, e.width, e.height, e.key, e.mod, e.scale, e.nodeID, e.firstIndex, e.endIndex, e.text, e.firstColumn, e.endColumn)
 }
 
 type uiCommand struct {
@@ -57,16 +58,49 @@ type uiReply struct {
 }
 
 type uiSession struct {
-	commands  chan uiCommand
-	events    chan uiEvent
-	done      chan struct{}
-	once      sync.Once
-	failure   error
-	mu        sync.Mutex
-	closed    atomic.Bool
-	wakeMu    sync.Mutex
-	wake      uintptr // Windows auto-reset event; zero on other platforms.
-	lastEvent time.Time
+	commands   chan uiCommand
+	events     chan uiEvent
+	gridWake   chan struct{}
+	gridMu     sync.Mutex
+	gridLatest map[string]uiEvent
+	done       chan struct{}
+	once       sync.Once
+	failure    error
+	mu         sync.Mutex
+	closed     atomic.Bool
+	wakeMu     sync.Mutex
+	wake       uintptr // Windows auto-reset event; zero on other platforms.
+	lastEvent  time.Time
+}
+
+func (u *uiSession) queueGridRange(event uiEvent) {
+	u.gridMu.Lock()
+	key := event.nodeID
+	if event.kind == "GridRangeDragged" {
+		key = "drag:" + key
+	}
+	u.gridLatest[key] = event
+	u.gridMu.Unlock()
+	select {
+	case u.gridWake <- struct{}{}:
+	default:
+	}
+}
+
+func (u *uiSession) takeGridRange() (uiEvent, bool) {
+	u.gridMu.Lock()
+	defer u.gridMu.Unlock()
+	for id, event := range u.gridLatest {
+		delete(u.gridLatest, id)
+		if len(u.gridLatest) > 0 {
+			select {
+			case u.gridWake <- struct{}{}:
+			default:
+			}
+		}
+		return event, true
+	}
+	return uiEvent{}, false
 }
 
 func (u *uiSession) fail(err error) {
@@ -107,6 +141,12 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 	if name == "std.ui.fillRect" || name == "std.ui.strokeRect" || name == "std.ui.drawLine" || name == "std.ui.drawText" || name == "std.ui.drawTextStyled" || name == "std.ui.drawImage" || name == "std.ui.hitRegion" {
 		return s.makeUIDraw(name, args)
 	}
+	if name == "std.ui.pathMoveTo" || name == "std.ui.pathLineTo" || name == "std.ui.pathArcTo" || name == "std.ui.pathQuadraticTo" || name == "std.ui.pathCubicTo" || name == "std.ui.pathClose" {
+		return pathSegment(name, args)
+	}
+	if name == "std.ui.fillPath" || name == "std.ui.strokePath" {
+		return pathDraw(name, args)
+	}
 	if name == "std.ui.targetPolicy" {
 		original, ok := args[0].(*UiDraw)
 		if !ok || original == nil || original.kind != "hitRegion" {
@@ -138,6 +178,9 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 			draw, ok := value.(*UiDraw)
 			if !ok || draw == nil {
 				return nil, fmt.Errorf("UiTreeError: Canvas command is not UiDraw")
+			}
+			if isPathSegment(draw.kind) {
+				return nil, fmt.Errorf("UiTreeError: path segment must be used in fillPath or strokePath")
 			}
 			node.draws = append(node.draws, cloneDraw(*draw))
 		}
@@ -224,6 +267,19 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 		node.wrapText = true
 		return node, nil
 	}
+	if name == "std.ui.inputStyle" {
+		original, ok := args[0].(*UiNode)
+		if !ok || original == nil || original.kind != "TextInput" {
+			return nil, fmt.Errorf("UiTreeError: inputStyle requires TextInput")
+		}
+		fill, border, radius := args[1].(int64), args[2].(int64), args[3].(int64)
+		if !validCanvasColor(fill) || !validCanvasColor(border) || fill>>24 != 255 || border>>24 != 255 || radius < 0 || radius > 24 {
+			return nil, fmt.Errorf("UiArgumentError: inputStyle requires opaque fill and border, and radius 0..24")
+		}
+		node := cloneNode(original)
+		node.surfaceFill, node.surfaceBorder, node.surfaceRadius, node.customSurface = uint32(fill), uint32(border), radius, true
+		return node, nil
+	}
 	if name == "std.ui.focusPolicy" {
 		original, ok := args[0].(*UiNode)
 		if !ok || original == nil || (original.kind != "Button" && original.kind != "TextInput") {
@@ -248,8 +304,8 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 	}
 	if name == "std.ui.surface" {
 		original, ok := args[0].(*UiNode)
-		if !ok || original == nil || (original.kind != "Panel" && original.kind != "Button") {
-			return nil, fmt.Errorf("UiTreeError: surface requires Panel or Button")
+		if !ok || original == nil || (original.kind != "Panel" && original.kind != "Button" && original.kind != "Text") {
+			return nil, fmt.Errorf("UiTreeError: surface requires Panel, Button or Text")
 		}
 		fill, border, radius := args[1].(int64), args[2].(int64), args[3].(int64)
 		if !validCanvasColor(fill) || !validCanvasColor(border) || fill>>24 != 255 || (border>>24 != 0 && border>>24 != 255) || radius < 0 || radius > 256 {
@@ -305,6 +361,90 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 			return nil, err
 		}
 		node.itemCount, node.rowHeight, node.firstIndex = count, height, first
+		if err := validateTree(node); err != nil {
+			return nil, err
+		}
+		return node, nil
+	}
+	if name == "std.ui.virtualGrid" {
+		array := args[8].(*rt.Array)
+		children := make([]*UiNode, 0, len(array.Items))
+		for _, value := range array.Items {
+			child, ok := value.(*UiNode)
+			if !ok || child == nil {
+				return nil, fmt.Errorf("UiTreeError: VirtualGrid cell is not UiNode")
+			}
+			children = append(children, child)
+		}
+		node, err := makeNode("VirtualGrid", args[0].(string), "", children)
+		if err != nil {
+			return nil, err
+		}
+		node.itemCount, node.columnCount = args[1].(int64), args[2].(int64)
+		node.rowHeight, node.columnWidth = args[3].(int64), args[4].(int64)
+		node.firstIndex, node.firstColumn, node.loadedColumns = args[5].(int64), args[6].(int64), args[7].(int64)
+		if err := validateTree(node); err != nil {
+			return nil, err
+		}
+		return node, nil
+	}
+	if name == "std.ui.gridSelection" {
+		original, ok := args[0].(*UiNode)
+		if !ok || original == nil || original.kind != "VirtualGrid" {
+			return nil, fmt.Errorf("UiTreeError: gridSelection requires a VirtualGrid")
+		}
+		row, column := args[1].(int64), args[2].(int64)
+		if row < 0 || row >= original.itemCount || column < 0 || column >= original.columnCount {
+			return nil, fmt.Errorf("UiArgumentError: gridSelection is outside the grid")
+		}
+		node := cloneNode(original)
+		node.selectedRow, node.selectedColumn, node.hasGridSelection, node.hasGridRange = row, column, true, false
+		return node, nil
+	}
+	if name == "std.ui.gridRangeSelection" {
+		original, ok := args[0].(*UiNode)
+		if !ok || original == nil || original.kind != "VirtualGrid" {
+			return nil, fmt.Errorf("UiTreeError: gridRangeSelection requires a VirtualGrid")
+		}
+		anchorRow, anchorColumn, focusRow, focusColumn := args[1].(int64), args[2].(int64), args[3].(int64), args[4].(int64)
+		if anchorRow < 0 || anchorRow >= original.itemCount || focusRow < 0 || focusRow >= original.itemCount || anchorColumn < 0 || anchorColumn >= original.columnCount || focusColumn < 0 || focusColumn >= original.columnCount {
+			return nil, fmt.Errorf("UiArgumentError: gridRangeSelection is outside the grid")
+		}
+		node := cloneNode(original)
+		node.rangeAnchorRow, node.rangeAnchorColumn, node.selectedRow, node.selectedColumn = anchorRow, anchorColumn, focusRow, focusColumn
+		node.hasGridSelection, node.hasGridRange = true, true
+		return node, nil
+	}
+	if name == "std.ui.gridRangeStyle" {
+		original, ok := args[0].(*UiNode)
+		if !ok || original == nil || original.kind != "VirtualGrid" {
+			return nil, fmt.Errorf("UiTreeError: gridRangeStyle requires a VirtualGrid")
+		}
+		fill, border := args[1].(int64), args[2].(int64)
+		if !validCanvasColor(fill) || !validCanvasColor(border) || fill>>24 != 255 || border>>24 != 255 {
+			return nil, fmt.Errorf("UiArgumentError: gridRangeStyle requires opaque colors")
+		}
+		node := cloneNode(original)
+		node.rangeFill, node.rangeBorder, node.customRangeStyle = uint32(fill), uint32(border), true
+		return node, nil
+	}
+	if name == "std.ui.gridEditor" {
+		original, ok := args[0].(*UiNode)
+		editor, editorOK := args[3].(*UiNode)
+		if !ok || original == nil || original.kind != "VirtualGrid" || !editorOK || editor == nil || editor.kind != "TextInput" || editor.disabled {
+			return nil, fmt.Errorf("UiTreeError: gridEditor requires a VirtualGrid and enabled TextInput")
+		}
+		row, column := args[1].(int64), args[2].(int64)
+		if row < 0 || row >= original.itemCount || column < 0 || column >= original.columnCount {
+			return nil, fmt.Errorf("UiArgumentError: gridEditor is outside the grid")
+		}
+		node := cloneNode(original)
+		if node.hasGridEditor {
+			node.children[len(node.children)-1] = cloneNode(editor)
+		} else {
+			node.children = append(node.children, cloneNode(editor))
+		}
+		node.editorRow, node.editorColumn, node.hasGridEditor = row, column, true
 		if err := validateTree(node); err != nil {
 			return nil, err
 		}
@@ -408,6 +548,14 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 			timer = t.C
 		}
 		select {
+		case <-s.ui.gridWake:
+			if event, ok := s.ui.takeGridRange(); ok {
+				s.ui.mu.Lock()
+				s.ui.lastEvent = event.at
+				s.ui.mu.Unlock()
+				return rt.Some(event.value()), nil
+			}
+			return rt.Optional{}, nil
 		case event := <-s.ui.events:
 			s.ui.mu.Lock()
 			s.ui.lastEvent = event.at
@@ -432,6 +580,12 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 		if len(cmd.title) > 1024 {
 			return nil, fmt.Errorf("UiArgumentError: title exceeds 1024 bytes")
 		}
+	case "std.ui.setWindowIcon":
+		cmd.value = args[1].(string)
+		if cmd.value == "" || len(cmd.value) > 4096 || !utf8.ValidString(cmd.value) || strings.ContainsRune(cmd.value, 0) {
+			return nil, fmt.Errorf("UiArgumentError: icon path must be valid UTF-8 without NUL and at most 4096 bytes")
+		}
+	case "std.ui.maximizeWindow":
 	case "std.ui.setBackground":
 		cmd.r, cmd.g, cmd.b = args[1].(int64), args[2].(int64), args[3].(int64)
 		if cmd.r < 0 || cmd.r > 255 || cmd.g < 0 || cmd.g > 255 || cmd.b < 0 || cmd.b > 255 {
@@ -439,6 +593,12 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 		}
 	case "std.ui.closeWindow":
 	case "std.ui.renderer":
+	case "std.ui.clipboardReadText":
+	case "std.ui.clipboardWriteText":
+		cmd.value = args[1].(string)
+		if len(cmd.value) > 8<<20 || !utf8.ValidString(cmd.value) || strings.ContainsRune(cmd.value, 0) {
+			return nil, fmt.Errorf("UiArgumentError: clipboard text must be valid UTF-8 without NUL and at most 8 MiB")
+		}
 	case "std.ui.viewportWidth", "std.ui.viewportHeight":
 	case "std.ui.measureTextWidth":
 		cmd.value, cmd.w, cmd.h = args[1].(string), args[2].(int64), args[3].(int64)
@@ -490,7 +650,7 @@ func (s *Session) invokeUI(ctx context.Context, name string, args []any) (any, e
 	if err == nil && name == "std.ui.closeWindow" {
 		s.ui.closed.Store(true)
 	}
-	if name == "std.ui.renderer" {
+	if name == "std.ui.renderer" || name == "std.ui.clipboardReadText" {
 		return reply.text, err
 	}
 	if name == "std.ui.viewportWidth" || name == "std.ui.viewportHeight" || name == "std.ui.measureTextWidth" {

@@ -6,6 +6,7 @@ import (
 	"craft/internal/formatter"
 	"craft/internal/interpreter"
 	"craft/internal/project"
+	"craft/internal/toolchain"
 	"errors"
 	"fmt"
 	"io"
@@ -15,8 +16,8 @@ import (
 	"strings"
 )
 
-const Version = "0.1.30"
-const help = `Craft 0.1.30 — CLI and Runtime
+const Version = toolchain.Version
+const help = `Craft 0.1.45 — CLI and Runtime
 
 Usage:
   craft version                Show toolchain version
@@ -80,7 +81,7 @@ func RunWithInput(ctx context.Context, args []string, cwd string, in io.Reader, 
 		if len(args) != 1 {
 			return usage("usage: craft version")
 		}
-		fmt.Fprintf(out, "Craft %s\nMilestone: Phase 1 Rev.30\nTarget: %s-%s\nCompiler: Go\nExecution: Interpreter\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(out, "Craft %s\nMilestone: Phase 1 Rev.45 candidate\nTarget: %s-%s\nCompiler: Go\nExecution: Interpreter\n", Version, runtime.GOOS, runtime.GOARCH)
 		return 0
 	case "new":
 		if len(args) != 2 {

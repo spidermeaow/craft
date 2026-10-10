@@ -162,6 +162,13 @@ func (w *windowsState) paintCanvasGDI(hdc uintptr, box *uiBox) {
 		if cmd.kind == "hitRegion" {
 			continue
 		}
+		if w.trace.enabled {
+			w.trace.canvasPaintOps++
+		}
+		if cmd.kind == "fillPath" || cmd.kind == "strokePath" {
+			paintPathGDI(hdc, box, cmd, scale)
+			continue
+		}
 		x1 := int32(float64(box.x+cmd.x) * scale)
 		y1 := int32(float64(box.y+cmd.y) * scale)
 		x2 := int32(float64(box.x+cmd.x+cmd.w) * scale)
@@ -198,7 +205,7 @@ func (w *windowsState) paintCanvasGDI(hdc uintptr, box *uiBox) {
 			}
 			uiDeleteObject.Call(brush)
 		case "strokeRect":
-			pen, _, _ := uiCreatePen.Call(0, uintptr(max64(1, int64(float64(cmd.thickness)*scale))), color)
+			pen, _, _ := uiCreatePen.Call(0, uintptr(max64(1, int64(math.Round(float64(cmd.thickness)*scale)))), color)
 			if pen == 0 {
 				continue
 			}
@@ -215,7 +222,7 @@ func (w *windowsState) paintCanvasGDI(hdc uintptr, box *uiBox) {
 			uiSelectObject.Call(hdc, oldPen)
 			uiDeleteObject.Call(pen)
 		case "line":
-			pen, _, _ := uiCreatePen.Call(0, uintptr(max64(1, int64(float64(cmd.thickness)*scale))), color)
+			pen, _, _ := uiCreatePen.Call(0, uintptr(max64(1, int64(math.Round(float64(cmd.thickness)*scale)))), color)
 			if pen == 0 {
 				continue
 			}
@@ -248,10 +255,10 @@ func (w *windowsState) paintCanvasGDI(hdc uintptr, box *uiBox) {
 			if cmd.fontSize > 0 {
 				flags = 0x0010 | 0x0800
 			}
-			if cmd.textAlign == 1 {
+			if cmd.textAlign == uiTextAlignCenter {
 				flags |= 0x0001
 			}
-			if cmd.textAlign == 2 {
+			if cmd.textAlign == uiTextAlignEnd {
 				flags |= 0x0002
 			}
 			uiDrawText.Call(hdc, uintptr(unsafe.Pointer(value)), ^uintptr(0), uintptr(unsafe.Pointer(&r)), flags)

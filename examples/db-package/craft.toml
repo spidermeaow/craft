@@ -1,0 +1,7 @@
+name = "db-package-example"
+version = "0.1.0"
+edition = "2026"
+entry = "main"
+
+[dependencies]
+db = { path = "../../packages/db" }

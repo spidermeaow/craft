@@ -88,6 +88,9 @@ func NewSession(in io.Reader, args []string) *Session {
 	return &Session{reader: bufio.NewReader(in), args: append([]string(nil), args...), logger: &sessionLogger{out: os.Stderr, level: 1}}
 }
 func (s *Session) Invoke(ctx context.Context, out io.Writer, name string, args []any) (any, error) {
+	if strings.HasPrefix(name, "std.process.") {
+		return s.invokeProcess(ctx, name, args)
+	}
 	if strings.HasPrefix(name, "std.ui.") {
 		return s.invokeUI(ctx, name, args)
 	}

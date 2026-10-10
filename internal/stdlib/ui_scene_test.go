@@ -59,6 +59,25 @@ func TestRev23LayoutSpecInvalidatesRebind(t *testing.T) {
 	}
 }
 
+func TestAdaptiveTextElsewhereDoesNotForceCanvasRelayout(t *testing.T) {
+	first := &UiNode{kind: "Column", id: "root", children: []*UiNode{
+		{kind: "Text", id: "help", text: "Unchanged wrapping help", wrapText: true},
+		{kind: "Canvas", id: "draw", width: 200, height: 100, draws: []UiDraw{{kind: "fillRect", x: 10, y: 10, w: 20, h: 20, color: 0xff123456}}},
+	}}
+	box := measureNode(first, testTextMeasure)
+	next := cloneNode(first)
+	next.children[1].draws[0].x = 80
+	var changed []uiChange
+	if !rebindLayoutDetailed(box, next, &changed) || len(changed) != 1 || changed[0].box.node.id != "draw" {
+		t.Fatalf("canvas change should rebind with stable adaptive text; changes=%d", len(changed))
+	}
+	wrapped := cloneNode(next)
+	wrapped.children[0].text = "A different wrapping help string"
+	if rebindLayoutDetailed(box, wrapped, &changed) {
+		t.Fatal("changed wrapping text must relayout")
+	}
+}
+
 func TestScrollViewLayoutHitAndClamp(t *testing.T) {
 	root := testGrid(20, 20)
 	if err := validateTree(root); err != nil {

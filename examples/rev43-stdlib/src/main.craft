@@ -1,0 +1,39 @@
+func main() {
+    let raw: Bytes = std.bytes.fromArray([0, 67, 114, 97, 102, 116])
+    let base64: String = std.encoding.base64Encode(raw)
+    assert std.crypto.secureEqual(std.encoding.base64Decode(base64), raw)
+    let hex: String = std.encoding.hexEncode(raw)
+    assert std.crypto.secureEqual(std.encoding.hexDecode(hex), raw)
+    let digest: Bytes = std.crypto.sha256(raw)
+    let mac: Bytes = std.crypto.hmacSha256(raw, digest)
+    assert std.crypto.secureEqual(mac, mac)
+    let random: Bytes = std.crypto.secureRandom(8)
+    assert random.length() == 8
+    let id: String = std.crypto.uuid()
+    print(id)
+    let address: UrlParts = std.url.parse("https://example.org/a?q=one&q=two")
+    assert address.host == "example.org"
+    assert std.url.decode(std.url.encode("Craft + ไทย")) == "Craft + ไทย"
+    let query: Map < String, String[] > = std.url.query(address.rawQuery)
+    if let values = query.get("q") {
+        assert values.length == 2
+    }
+    else {
+        assert false
+    }
+    assert std.regex.match("[0-9]+", "row 42")
+    let found: RegexMatch? = std.regex.find("[0-9]+", "row 42")
+    assert found != null
+    assert std.regex.replace("[0-9]+", "row 42", "7") == "row 7"
+    let parts: String[] = std.regex.split(",", "a,b,c")
+    assert parts.length == 3
+    let result: ProcessResult = std.process.run("hostname.exe", [], 5000, 4096)
+    assert result.exitCode == 0
+    let child: Process = std.process.start("hostname.exe", [], 4096)
+    let childResult: ProcessResult = std.process.wait(child, 5000)
+    assert childResult.exitCode == 0
+    assert std.process.exitCode(child) != null
+    assert std.os.processId() > 0
+    print(std.os.version())
+    print(std.os.architecture())
+}

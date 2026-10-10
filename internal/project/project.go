@@ -5,6 +5,7 @@ import (
 	"craft/internal/diagnostics"
 	"craft/internal/lexer"
 	"craft/internal/parser"
+	"craft/internal/toolchain"
 	"craft/internal/types"
 	"craft/templates"
 	"encoding/json"
@@ -189,11 +190,17 @@ func readManifestData(root string, data []byte) (Manifest, error) {
 			if _, exists := dependencies[k]; exists {
 				return Manifest{}, diagnostics.New(p, "manifest error: duplicate dependency %s", k)
 			}
-			fields, e := manifestDependencyFields(strings.TrimSpace(raw))
+			fields, e := manifestDependencyFields(strings.TrimSpace(raw), bundledPackage(k))
 			if e != nil {
 				return Manifest{}, diagnostics.New(p, "manifest error: dependency %s: %s", k, e)
 			}
+			if bundledPackage(k) && fields["version"] != "" {
+				return Manifest{}, diagnostics.New(p, "manifest error: dependency %s uses the Craft version; remove the version field", k)
+			}
 			depPath, version := fields["path"], fields["version"]
+			if bundledPackage(k) && version == "" {
+				version = toolchain.Version
+			}
 			if fields["github"] != "" {
 				remote := GitHubDependency{Repository: strings.ToLower(fields["github"]), Tag: fields["tag"], Version: version}
 				if e := remote.validate(); e != nil {
@@ -254,10 +261,16 @@ func readManifestData(root string, data []byte) (Manifest, error) {
 			if canonicalDependencies[a] {
 				return m, diagnostics.New(valuePositions[k], "manifest error: duplicate dependency version %s", a)
 			}
+			if bundledPackage(a) {
+				return m, diagnostics.New(valuePositions[k], "manifest error: dependency %s uses the Craft version; remove dependency-version.%s", a, a)
+			}
 			m.Versions[a] = v
 		}
 	}
 	for a := range m.Dependencies {
+		if bundledPackage(a) && m.Versions[a] == "" {
+			m.Versions[a] = toolchain.Version
+		}
 		if m.Versions[a] == "" {
 			return m, fmt.Errorf("dependency-version.%s is required", a)
 		}
@@ -288,7 +301,9 @@ func readManifestData(root string, data []byte) (Manifest, error) {
 	return m, nil
 }
 
-func manifestDependencyFields(raw string) (map[string]string, error) {
+func bundledPackage(alias string) bool { return alias == "gui" || alias == "api" || alias == "db" }
+
+func manifestDependencyFields(raw string, bundled bool) (map[string]string, error) {
 	if !strings.HasPrefix(raw, "{") {
 		return nil, fmt.Errorf("expected inline dependency table")
 	}
@@ -344,12 +359,12 @@ func manifestDependencyFields(raw string) (map[string]string, error) {
 			return nil, fmt.Errorf("%s: %s", k, e)
 		}
 	}
-	if values["version"] == "" {
+	if values["version"] == "" && !(bundled && len(values) == 1 && values["path"] != "") {
 		return nil, fmt.Errorf("version is required")
 	}
 	_, local := values["path"]
 	if local {
-		if len(values) != 2 || values["path"] == "" {
+		if (len(values) != 2 && !(bundled && len(values) == 1)) || values["path"] == "" {
 			return nil, fmt.Errorf("local dependency requires only path and version")
 		}
 	} else if len(values) != 3 || values["github"] == "" || values["tag"] == "" {

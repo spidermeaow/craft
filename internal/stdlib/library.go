@@ -44,6 +44,9 @@ var signatures = map[string]Signature{
 func init() {
 	signatures["std.ui.openWindow"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int}, Result: ast.UiWindow}
 	signatures["std.ui.setTitle"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.setWindowIcon"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.maximizeWindow"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.Void}
+	signatures["std.ui.inputStyle"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
 	signatures["std.ui.setBackground"] = Signature{Params: []ast.Type{ast.UiWindow, ast.Int, ast.Int, ast.Int}, Result: ast.Void}
 	signatures["std.ui.closeWindow"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.Void}
 	signatures["std.ui.nextEvent"] = Signature{Params: []ast.Type{ast.Int}, Result: ast.Type("UiEvent").Optional()}
@@ -58,6 +61,13 @@ func init() {
 	signatures["std.ui.splitView"] = Signature{Params: []ast.Type{ast.String, ast.UiNode, ast.UiNode, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
 	signatures["std.ui.scrollView"] = Signature{Params: []ast.Type{ast.String, ast.UiNode}, Result: ast.UiNode}
 	signatures["std.ui.virtualList"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.UiNode.Array()}, Result: ast.UiNode}
+	signatures["std.ui.virtualGrid"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.UiNode.Array()}, Result: ast.UiNode}
+	signatures["std.ui.gridSelection"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.gridRangeSelection"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.gridRangeStyle"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int}, Result: ast.UiNode}
+	signatures["std.ui.clipboardReadText"] = Signature{Params: []ast.Type{ast.UiWindow}, Result: ast.String}
+	signatures["std.ui.clipboardWriteText"] = Signature{Params: []ast.Type{ast.UiWindow, ast.String}, Result: ast.Void}
+	signatures["std.ui.gridEditor"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.UiNode}, Result: ast.UiNode}
 	signatures["std.ui.text"] = Signature{Params: []ast.Type{ast.String, ast.String}, Result: ast.UiNode}
 	signatures["std.ui.button"] = Signature{Params: []ast.Type{ast.String, ast.String}, Result: ast.UiNode}
 	signatures["std.ui.textStyle"] = Signature{Params: []ast.Type{ast.UiNode, ast.Int, ast.Int, ast.Int}, Result: ast.UiNode}
@@ -84,6 +94,14 @@ func init() {
 	signatures["std.ui.fillRect"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
 	signatures["std.ui.strokeRect"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
 	signatures["std.ui.drawLine"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.pathMoveTo"] = Signature{Params: []ast.Type{ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.pathLineTo"] = Signature{Params: []ast.Type{ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.pathArcTo"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.pathQuadraticTo"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.pathCubicTo"] = Signature{Params: []ast.Type{ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.pathClose"] = Signature{Params: []ast.Type{}, Result: ast.UiDraw}
+	signatures["std.ui.fillPath"] = Signature{Params: []ast.Type{ast.UiDraw.Array(), ast.Int}, Result: ast.UiDraw}
+	signatures["std.ui.strokePath"] = Signature{Params: []ast.Type{ast.UiDraw.Array(), ast.Int, ast.Int}, Result: ast.UiDraw}
 	signatures["std.ui.drawText"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
 	signatures["std.ui.drawTextStyled"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.String}, Result: ast.UiDraw}
 	signatures["std.ui.hitRegion"] = Signature{Params: []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int}, Result: ast.UiDraw}
@@ -126,6 +144,12 @@ func Method(receiver ast.Type, name string) (Signature, bool) {
 	return methodRev2(receiver, name)
 }
 func Invoke(ctx context.Context, out io.Writer, name string, args []any) (any, error) {
+	if strings.HasPrefix(name, "std.encoding.") || strings.HasPrefix(name, "std.crypto.") || strings.HasPrefix(name, "std.url.") || strings.HasPrefix(name, "std.regex.") {
+		return rev43DataInvoke(ctx, name, args)
+	}
+	if strings.HasPrefix(name, "std.os.") {
+		return invokeOS(ctx, name, args)
+	}
 	if name == "std.fs.writeTextAtomic" || name == "std.fs.writeBytesAtomic" {
 		var data string
 		if name == "std.fs.writeTextAtomic" {

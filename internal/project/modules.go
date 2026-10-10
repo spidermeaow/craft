@@ -18,7 +18,8 @@ import (
 	"strings"
 )
 
-// One manifest is one module. Imports are file-local, exports are module-wide.
+// One manifest is one package; declared project modules partition its sources.
+// Imports are file-local and exports are visible through that module's imports.
 type Module struct {
 	ID           string            `json:"id"`
 	Name         string            `json:"name"`
@@ -163,6 +164,9 @@ func resolveGraph(root *Project, verifyLock bool, r *remoteResolver) (*Project, 
 			d, e := load(dir, false)
 			if e != nil {
 				return dependencyError(p.Manifest, a, "cannot load path %q: %s", filepath.Clean(dir), e)
+			}
+			if bundledPackage(a) && d.Manifest.Name != a {
+				return dependencyError(p.Manifest, a, "expected the bundled %s package, got %s", a, d.Manifest.Name)
 			}
 			resolved, e := filepath.EvalSymlinks(dir)
 			if e != nil {
@@ -326,9 +330,33 @@ type symbol struct {
 	structure bool
 }
 
+type sourceUnit struct {
+	parent, scope string
+	program       *ast.Program
+}
+
+func projectScope(parent, name string) string {
+	if name == "" {
+		return parent
+	}
+	return parent + "::module:" + name
+}
+
+func validProjectModuleName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, segment := range strings.Split(name, ".") {
+		if !validAlias(segment) {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Project) compileModules(requireMain bool) (*ast.Program, map[string]string, error) {
 	texts := map[string]string{}
-	units := map[string][]*ast.Program{}
+	units := []sourceUnit{}
 	symbols := map[string]map[string]symbol{}
 	mods := map[string]Module{}
 	if e := validateModules(p.Modules, true); e != nil {
@@ -352,7 +380,14 @@ func (p *Project) compileModules(requireMain bool) (*ast.Program, map[string]str
 			if e != nil {
 				return nil, texts, e
 			}
-			units[m.ID] = append(units[m.ID], u)
+			if u.Module != "" && !validProjectModuleName(u.Module) {
+				return nil, texts, fmt.Errorf("invalid project module name %q in %s", u.Module, file)
+			}
+			scope := projectScope(m.ID, u.Module)
+			if symbols[scope] == nil {
+				symbols[scope] = map[string]symbol{}
+			}
+			units = append(units, sourceUnit{m.ID, scope, u})
 			add := func(name string, exported, structure bool, pos diagnostics.Position) error {
 				_, builtin := stdlib.Lookup(name)
 				reserved := name == "std" || builtin || name == "HttpRequest" || name == "HttpResponse" || name == "HttpConfig"
@@ -370,14 +405,14 @@ func (p *Project) compileModules(requireMain bool) (*ast.Program, map[string]str
 				if reserved {
 					return diagnostics.New(pos, "type error: reserved declaration name %s", name)
 				}
-				if _, ok := symbols[m.ID][name]; ok {
+				if _, ok := symbols[scope][name]; ok {
 					return diagnostics.New(pos, "type error: duplicate declaration %s", name)
 				}
 				n := name
-				if m.ID != root {
-					n = m.ID + "::" + name
+				if scope != root {
+					n = scope + "::" + name
 				}
-				symbols[m.ID][name] = symbol{n, exported, structure}
+				symbols[scope][name] = symbol{n, exported, structure}
 				return nil
 			}
 			for _, s := range u.Structs {
@@ -393,204 +428,240 @@ func (p *Project) compileModules(requireMain bool) (*ast.Program, map[string]str
 		}
 	}
 	result := &ast.Program{}
-	for _, m := range p.Modules {
-		for _, u := range units[m.ID] {
-			aliases := map[string]string{}
-			imported := map[string]bool{}
-			for _, imp := range u.Imports {
-				dep := m.Dependencies[imp.Dependency]
-				if !validAlias(imp.Alias) || dep == "" || aliases[imp.Alias] != "" || imported[dep] {
-					return nil, texts, fmt.Errorf("invalid/duplicate import %s in %s", imp.Alias, m.ID)
+	moduleEdges := map[string][]string{}
+	for _, unit := range units {
+		m, scope, u := mods[unit.parent], unit.scope, unit.program
+		aliases := map[string]string{}
+		imported := map[string]bool{}
+		for _, imp := range u.Imports {
+			dep := ""
+			if imp.Kind == "module" {
+				if validProjectModuleName(imp.Dependency) {
+					dep = projectScope(m.ID, imp.Dependency)
 				}
-				if _, ok := symbols[m.ID][imp.Alias]; ok {
-					return nil, texts, fmt.Errorf("import alias conflicts with declaration %s", imp.Alias)
+				if symbols[dep] == nil || dep == m.ID {
+					dep = ""
 				}
-				aliases[imp.Alias] = dep
-				imported[dep] = true
+				if dep != "" {
+					moduleEdges[scope] = append(moduleEdges[scope], dep)
+				}
+			} else {
+				dep = m.Dependencies[imp.Dependency]
 			}
-			lookup := func(n string) (string, error) {
-				if a, b, ok := strings.Cut(n, "."); ok {
-					dep := aliases[a]
-					s, exists := symbols[dep][b]
-					if dep == "" || !exists || !s.exported {
-						return "", fmt.Errorf("unknown or private imported symbol %s in %s", n, m.ID)
-					}
-					return s.name, nil
-				}
-				if s, ok := symbols[m.ID][n]; ok {
-					return s.name, nil
-				}
-				return n, nil
+			if !validAlias(imp.Alias) || dep == "" || aliases[imp.Alias] != "" || imported[dep] {
+				return nil, texts, fmt.Errorf("invalid/duplicate %s import %s in %s", imp.Kind, imp.Alias, scope)
 			}
-			var typ func(ast.Type) (ast.Type, error)
-			typ = func(t ast.Type) (ast.Type, error) {
-				if t.IsOptional() {
-					v, e := typ(t.Base())
-					return v.Optional(), e
+			if _, ok := symbols[scope][imp.Alias]; ok {
+				return nil, texts, fmt.Errorf("import alias conflicts with declaration %s", imp.Alias)
+			}
+			aliases[imp.Alias] = dep
+			imported[dep] = true
+		}
+		lookup := func(n string) (string, error) {
+			if a, b, ok := strings.Cut(n, "."); ok {
+				dep := aliases[a]
+				s, exists := symbols[dep][b]
+				if dep == "" || !exists || !s.exported {
+					return "", fmt.Errorf("unknown or private imported symbol %s in %s", n, scope)
 				}
-				if t.IsArray() {
-					v, e := typ(t.Element())
-					return v.Array(), e
+				return s.name, nil
+			}
+			if s, ok := symbols[scope][n]; ok {
+				return s.name, nil
+			}
+			return n, nil
+		}
+		var typ func(ast.Type) (ast.Type, error)
+		typ = func(t ast.Type) (ast.Type, error) {
+			if t.IsOptional() {
+				v, e := typ(t.Base())
+				return v.Optional(), e
+			}
+			if t.IsArray() {
+				v, e := typ(t.Element())
+				return v.Array(), e
+			}
+			if t.IsMap() {
+				v, e := typ(t.MapElement())
+				return v.Map(), e
+			}
+			if r, ps, ok := t.Function(); ok {
+				r, e := typ(r)
+				if e != nil {
+					return "", e
 				}
-				if t.IsMap() {
-					v, e := typ(t.MapElement())
-					return v.Map(), e
-				}
-				if r, ps, ok := t.Function(); ok {
-					r, e := typ(r)
+				for i := range ps {
+					ps[i], e = typ(ps[i])
 					if e != nil {
 						return "", e
 					}
-					for i := range ps {
-						ps[i], e = typ(ps[i])
-						if e != nil {
-							return "", e
-						}
-					}
-					return ast.FunctionType(r, ps), nil
 				}
-				n, e := lookup(string(t))
-				return ast.Type(n), e
+				return ast.FunctionType(r, ps), nil
 			}
-			clone := func(s map[string]bool) map[string]bool {
-				r := map[string]bool{}
-				for k, v := range s {
-					r[k] = v
-				}
-				return r
+			n, e := lookup(string(t))
+			return ast.Type(n), e
+		}
+		clone := func(s map[string]bool) map[string]bool {
+			r := map[string]bool{}
+			for k, v := range s {
+				r[k] = v
 			}
-			var expr func(*ast.Expr, map[string]bool) error
-			expr = func(x *ast.Expr, locals map[string]bool) error {
-				if x == nil {
-					return nil
+			return r
+		}
+		var expr func(*ast.Expr, map[string]bool) error
+		expr = func(x *ast.Expr, locals map[string]bool) error {
+			if x == nil {
+				return nil
+			}
+			var e error
+			if x.Kind == "member" && x.Left.Kind == "identifier" && aliases[x.Left.Text] != "" && !locals[x.Left.Text] {
+				n, e := lookup(x.Left.Text + "." + x.Text)
+				if e != nil {
+					return diagnostics.New(x.Pos, "type error: %s", e)
 				}
-				var e error
-				if x.Kind == "member" && x.Left.Kind == "identifier" && aliases[x.Left.Text] != "" && !locals[x.Left.Text] {
-					n, e := lookup(x.Left.Text + "." + x.Text)
-					if e != nil {
-						return diagnostics.New(x.Pos, "type error: %s", e)
-					}
-					x.Kind = "identifier"
-					x.Text = n
-					x.Left = nil
-					return nil
-				}
-				if x.Kind == "identifier" && !locals[x.Text] {
-					x.Text, e = lookup(x.Text)
-					if e != nil {
-						return e
-					}
-				}
-				x.Type, e = typ(x.Type)
+				x.Kind = "identifier"
+				x.Text = n
+				x.Left = nil
+				return nil
+			}
+			if x.Kind == "identifier" && !locals[x.Text] {
+				x.Text, e = lookup(x.Text)
 				if e != nil {
 					return e
 				}
-				if e = expr(x.Left, locals); e != nil {
+			}
+			x.Type, e = typ(x.Type)
+			if e != nil {
+				return e
+			}
+			if e = expr(x.Left, locals); e != nil {
+				return e
+			}
+			if e = expr(x.Right, locals); e != nil {
+				return e
+			}
+			for _, a := range x.Args {
+				if e = expr(a, locals); e != nil {
 					return e
 				}
-				if e = expr(x.Right, locals); e != nil {
-					return e
-				}
-				for _, a := range x.Args {
-					if e = expr(a, locals); e != nil {
+			}
+			return nil
+		}
+		var stmt func(*ast.Stmt, map[string]bool) error
+		stmt = func(s *ast.Stmt, locals map[string]bool) error {
+			if s == nil {
+				return nil
+			}
+			var e error
+			s.Type, e = typ(s.Type)
+			if e != nil {
+				return e
+			}
+			if e = expr(s.Expr, locals); e != nil {
+				return e
+			}
+			if e = expr(s.End, locals); e != nil {
+				return e
+			}
+			if s.Kind == "block" {
+				scope := clone(locals)
+				for _, st := range s.Statements {
+					if e = stmt(st, scope); e != nil {
 						return e
 					}
 				}
 				return nil
 			}
-			var stmt func(*ast.Stmt, map[string]bool) error
-			stmt = func(s *ast.Stmt, locals map[string]bool) error {
-				if s == nil {
-					return nil
+			if s.Kind == "let" || s.Kind == "var" {
+				if aliases[s.Name] != "" {
+					return diagnostics.New(s.Pos, "type error: local shadows import alias %s", s.Name)
 				}
-				var e error
-				s.Type, e = typ(s.Type)
-				if e != nil {
-					return e
-				}
-				if e = expr(s.Expr, locals); e != nil {
-					return e
-				}
-				if e = expr(s.End, locals); e != nil {
-					return e
-				}
-				if s.Kind == "block" {
-					scope := clone(locals)
-					for _, st := range s.Statements {
-						if e = stmt(st, scope); e != nil {
-							return e
-						}
-					}
-					return nil
-				}
-				if s.Kind == "let" || s.Kind == "var" {
-					if aliases[s.Name] != "" {
-						return diagnostics.New(s.Pos, "type error: local shadows import alias %s", s.Name)
-					}
-					locals[s.Name] = true
-				}
-				body := clone(locals)
-				if s.Kind == "for" || s.Kind == "iflet" {
-					if aliases[s.Name] != "" {
-						return diagnostics.New(s.Pos, "type error: local shadows import alias %s", s.Name)
-					}
-					body[s.Name] = true
-				}
-				if e = stmt(s.Body, body); e != nil {
-					return e
-				}
-				other := clone(locals)
-				if s.Kind == "try" {
-					if aliases[s.Name] != "" {
-						return diagnostics.New(s.Pos, "type error: local shadows import alias %s", s.Name)
-					}
-					other[s.Name] = true
-				}
-				return stmt(s.Else, other)
+				locals[s.Name] = true
 			}
-			for _, s := range u.Structs {
-				s.Name = symbols[m.ID][s.Name].name
-				for i := range s.Fields {
-					v, e := typ(s.Fields[i].Type)
-					if e != nil {
-						return nil, texts, e
-					}
-					s.Fields[i].Type = v
+			body := clone(locals)
+			if s.Kind == "for" || s.Kind == "iflet" {
+				if aliases[s.Name] != "" {
+					return diagnostics.New(s.Pos, "type error: local shadows import alias %s", s.Name)
 				}
-				result.Structs = append(result.Structs, s)
+				body[s.Name] = true
 			}
-			for _, f := range u.Functions {
-				f.Name = symbols[m.ID][f.Name].name
-				v, e := typ(f.Return)
+			if e = stmt(s.Body, body); e != nil {
+				return e
+			}
+			other := clone(locals)
+			if s.Kind == "try" {
+				if aliases[s.Name] != "" {
+					return diagnostics.New(s.Pos, "type error: local shadows import alias %s", s.Name)
+				}
+				other[s.Name] = true
+			}
+			return stmt(s.Else, other)
+		}
+		for _, s := range u.Structs {
+			s.Name = symbols[scope][s.Name].name
+			for i := range s.Fields {
+				v, e := typ(s.Fields[i].Type)
 				if e != nil {
 					return nil, texts, e
 				}
-				f.Return = v
-				locals := map[string]bool{}
-				for i := range f.Params {
-					a := &f.Params[i]
-					a.Type, e = typ(a.Type)
-					if e != nil {
-						return nil, texts, e
-					}
-					if aliases[a.Name] != "" {
-						return nil, texts, fmt.Errorf("parameter shadows import alias %s", a.Name)
-					}
-					locals[a.Name] = true
-				}
-				if e = stmt(f.Body, locals); e != nil {
+				s.Fields[i].Type = v
+			}
+			result.Structs = append(result.Structs, s)
+		}
+		for _, f := range u.Functions {
+			f.Name = symbols[scope][f.Name].name
+			v, e := typ(f.Return)
+			if e != nil {
+				return nil, texts, e
+			}
+			f.Return = v
+			locals := map[string]bool{}
+			for i := range f.Params {
+				a := &f.Params[i]
+				a.Type, e = typ(a.Type)
+				if e != nil {
 					return nil, texts, e
 				}
-				result.Functions = append(result.Functions, f)
-			}
-			if m.ID == root {
-				for _, t := range u.Tests {
-					if e := stmt(t.Body, map[string]bool{}); e != nil {
-						return nil, texts, e
-					}
-					result.Tests = append(result.Tests, t)
+				if aliases[a.Name] != "" {
+					return nil, texts, fmt.Errorf("parameter shadows import alias %s", a.Name)
 				}
+				locals[a.Name] = true
 			}
+			if e = stmt(f.Body, locals); e != nil {
+				return nil, texts, e
+			}
+			result.Functions = append(result.Functions, f)
+		}
+		if m.ID == root {
+			for _, t := range u.Tests {
+				if e := stmt(t.Body, map[string]bool{}); e != nil {
+					return nil, texts, e
+				}
+				result.Tests = append(result.Tests, t)
+			}
+		}
+	}
+	states := map[string]int{}
+	var visitScope func(string, []string) error
+	visitScope = func(scope string, chain []string) error {
+		if states[scope] == 1 {
+			return fmt.Errorf("project module import cycle: %s", strings.Join(append(chain, scope), " -> "))
+		}
+		if states[scope] == 2 {
+			return nil
+		}
+		states[scope] = 1
+		for _, dep := range moduleEdges[scope] {
+			if err := visitScope(dep, append(chain, scope)); err != nil {
+				return err
+			}
+		}
+		states[scope] = 2
+		return nil
+	}
+	for scope := range moduleEdges {
+		if err := visitScope(scope, nil); err != nil {
+			return nil, texts, err
 		}
 	}
 	if e := types.CheckMode(result, requireMain); e != nil {

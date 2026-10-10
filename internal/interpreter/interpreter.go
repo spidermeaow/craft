@@ -160,6 +160,9 @@ func (m *machine) call(f *ast.Function, args []any, at diagnostics.Position) (an
 	var closeDBScope func()
 	m.ctx, closeDBScope = stdlib.BeginDBScope(m.ctx)
 	defer func() { closeDBScope(); m.ctx = parentDBContext }()
+	var closeProcessScope func()
+	m.ctx, closeProcessScope = stdlib.BeginProcessScope(m.ctx)
+	defer closeProcessScope()
 	fr := &frame{name: f.Name, caller: at}
 	m.frames = append(m.frames, fr)
 	defer func() { m.frames = m.frames[:len(m.frames)-1] }()

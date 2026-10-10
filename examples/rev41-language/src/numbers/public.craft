@@ -1,0 +1,12 @@
+module demo.numbers
+
+export func total(
+    first: Int,
+    second: Int,
+    third: Int,
+): Int {
+    return add(
+        add(first, second),
+        third,
+    )
+}

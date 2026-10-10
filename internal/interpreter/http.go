@@ -14,7 +14,7 @@ func (m *machine) serveHTTP(args []any, pos diagnostics.Position) (any, error) {
 	}
 	f := args[1].(rt.Function).Declaration
 	if !snapshotSafe(args[2]) {
-		return nil, fmt.Errorf("HTTP state must not contain Task, Timer, Context or DbTransaction handles")
+		return nil, fmt.Errorf("HTTP state must not contain Task, Timer, Context, Process or DbTransaction handles")
 	}
 	state := rt.Clone(args[2]) // Frozen private snapshot, only read to clone per request.
 	err := stdlib.ServeHTTPTransport(m.ctx, args[0].(*rt.Struct), func(ctx context.Context, request *rt.Struct) (*rt.Struct, error) {
@@ -30,7 +30,7 @@ func (m *machine) serveHTTP(args []any, pos diagnostics.Position) (any, error) {
 
 func snapshotSafe(v any) bool {
 	switch x := v.(type) {
-	case *task, *stdlib.Context, *stdlib.DBTransaction:
+	case *task, *stdlib.Context, *stdlib.DBTransaction, *stdlib.Process:
 		return false
 	case rt.Optional:
 		return !x.Valid || snapshotSafe(x.Value)

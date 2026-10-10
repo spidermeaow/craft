@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "root": "db-package-example@0.1.0",
+  "dependencies": {
+    "db": "db@0.1.45"
+  },
+  "packages": [
+    {
+      "id": "db@0.1.45",
+      "source": "../../packages/db",
+      "checksum": "8527d72567579da135dd310b90e7861a7c150ebd9d04104209619824a28ed8f4"
+    }
+  ]
+}

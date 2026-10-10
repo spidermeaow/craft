@@ -27,10 +27,22 @@ type UiDraw struct {
 	image                *uiImage
 	tabStop, disabled    bool
 	accessibleName       string
+	pathValues           [6]float64
+	path                 []uiPathOp
+	figures              []uiPathFigure
 }
+
+// Internal alignment values shared by Canvas drawing and the GDI fallback.
+const (
+	uiTextAlignStart int64 = iota
+	uiTextAlignCenter
+	uiTextAlignEnd
+)
 
 func cloneDraw(d UiDraw) UiDraw {
 	d.textUTF16 = append([]uint16(nil), d.textUTF16...)
+	d.path = append([]uiPathOp(nil), d.path...)
+	d.figures = append([]uiPathFigure(nil), d.figures...)
 	return d
 }
 
@@ -40,8 +52,13 @@ func sameDraws(a, b []UiDraw) bool {
 	}
 	for i := range a {
 		x, y := a[i], b[i]
-		if x.kind != y.kind || x.target != y.target || x.x != y.x || x.y != y.y || x.w != y.w || x.h != y.h || x.color != y.color || x.radius != y.radius || x.thickness != y.thickness || x.text != y.text || x.fontSize != y.fontSize || x.fontWeight != y.fontWeight || x.textAlign != y.textAlign || x.image != y.image || x.tabStop != y.tabStop || x.disabled != y.disabled || x.accessibleName != y.accessibleName {
+		if x.kind != y.kind || x.target != y.target || x.x != y.x || x.y != y.y || x.w != y.w || x.h != y.h || x.color != y.color || x.radius != y.radius || x.thickness != y.thickness || x.text != y.text || x.fontSize != y.fontSize || x.fontWeight != y.fontWeight || x.textAlign != y.textAlign || x.image != y.image || x.tabStop != y.tabStop || x.disabled != y.disabled || x.accessibleName != y.accessibleName || len(x.path) != len(y.path) {
 			return false
+		}
+		for j := range x.path {
+			if x.path[j] != y.path[j] {
+				return false
+			}
 		}
 	}
 	return true
@@ -215,11 +232,11 @@ func (s *Session) makeUIDraw(name string, args []any) (*UiDraw, error) {
 			}
 			switch args[8].(string) {
 			case "start":
-				d.textAlign = 0
+				d.textAlign = uiTextAlignStart
 			case "center":
-				d.textAlign = 1
+				d.textAlign = uiTextAlignCenter
 			case "end":
-				d.textAlign = 2
+				d.textAlign = uiTextAlignEnd
 			default:
 				return nil, fmt.Errorf("UiDrawError: text alignment must be start, center or end")
 			}

@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -32,6 +34,9 @@ const (
 	wmCaptureChanged   = 0x0215
 	wmEraseBackground  = 0x0014
 	wmPaint            = 0x000F
+	wmSetCursor        = 0x0020
+	wmSetIcon          = 0x0080
+	wmNull             = 0x0000
 	wmDpiChanged       = 0x02E0
 	pmRemove           = 0x0001
 	qsAllInput         = 0x04ff
@@ -39,7 +44,21 @@ const (
 	wsOverlappedWindow = 0x00CF0000
 	wsVisible          = 0x10000000
 	wsClipChildren     = 0x02000000
+	swMaximize         = 3
+	idcArrow           = 32512
+	imageIcon          = 1
+	lrLoadFromFile     = 0x0010
+	iconSmall          = 0
+	iconBig            = 1
+	htClient           = 1
 )
+
+func darkenUIFill(color uint32, percent uint32) uint32 {
+	return color&0xff000000 |
+		((color>>16&0xff)*(100-percent)/100)<<16 |
+		((color>>8&0xff)*(100-percent)/100)<<8 |
+		(color&0xff)*(100-percent)/100
+}
 
 var (
 	uiUser32           = syscall.NewLazyDLL("user32.dll")
@@ -50,8 +69,18 @@ var (
 	uiCreateWindow     = uiUser32.NewProc("CreateWindowExW")
 	uiDestroyWindow    = uiUser32.NewProc("DestroyWindow")
 	uiSetWindowText    = uiUser32.NewProc("SetWindowTextW")
+	uiSendMessage      = uiUser32.NewProc("SendMessageW")
+	uiLoadImage        = uiUser32.NewProc("LoadImageW")
+	uiDestroyIcon      = uiUser32.NewProc("DestroyIcon")
+	uiShowWindow       = uiUser32.NewProc("ShowWindow")
+	uiLoadCursor       = uiUser32.NewProc("LoadCursorW")
+	uiSetCursor        = uiUser32.NewProc("SetCursor")
+	uiGetCursorPos     = uiUser32.NewProc("GetCursorPos")
+	uiWindowFromPoint  = uiUser32.NewProc("WindowFromPoint")
 	uiInvalidateRect   = uiUser32.NewProc("InvalidateRect")
 	uiPeekMessage      = uiUser32.NewProc("PeekMessageW")
+	uiGetMessage       = uiUser32.NewProc("GetMessageW")
+	uiPostMessage      = uiUser32.NewProc("PostMessageW")
 	uiTranslateMessage = uiUser32.NewProc("TranslateMessage")
 	uiDispatchMessage  = uiUser32.NewProc("DispatchMessageW")
 	uiGetClientRect    = uiUser32.NewProc("GetClientRect")
@@ -65,6 +94,7 @@ var (
 	uiTrackMouseEvent  = uiUser32.NewProc("TrackMouseEvent")
 	uiSetWindowPos     = uiUser32.NewProc("SetWindowPos")
 	uiSetFocus         = uiUser32.NewProc("SetFocus")
+	uiGetFocus         = uiUser32.NewProc("GetFocus")
 	uiSetThreadDpi     = uiUser32.NewProc("SetThreadDpiAwarenessContext")
 	uiFillRect         = uiUser32.NewProc("FillRect")
 	uiBeginPaint       = uiUser32.NewProc("BeginPaint")
@@ -87,6 +117,7 @@ var (
 	uiWaitForMessages  = uiUser32.NewProc("MsgWaitForMultipleObjectsEx")
 	uiClassOnce        sync.Once
 	uiClassErr         error
+	uiArrowCursor      uintptr
 	uiWndProc          = syscall.NewCallback(windowProcedure)
 	uiWindows          sync.Map // hwnd -> *windowsState
 )
@@ -147,13 +178,22 @@ type windowsState struct {
 	scrollDragID               string
 	scrollDragOffset           int64
 	scrollDragHorizontal       bool
+	gridDragID                 string
+	gridDragAnchorRow          int64
+	gridDragAnchorColumn       int64
+	gridDragRow                int64
+	gridDragColumn             int64
 	lastPointerX, lastPointerY int64
 	paintVisible               int64
 	lastMoveEvent              time.Time
 	virtualPending             map[string]bool
+	gridRequested              map[string][4]int64
 	inputs                     map[string]*nativeTextInput
+	focusVisible               bool
 	inputFont                  uintptr
 	inputFontScale             float64
+	windowIconSmall            uintptr
+	windowIconBig              uintptr
 	shortcuts                  map[shortcutKey]string
 	scopedShortcuts            map[string]map[shortcutKey]string
 	focusScopes                []focusScope
@@ -203,6 +243,9 @@ func countVirtualRows(b *uiBox) int64 {
 	if b.node.kind == "VirtualList" {
 		count = int64(len(b.children))
 	}
+	if b.node.kind == "VirtualGrid" {
+		count = int64(gridCellCount(b.node))
+	}
 	for _, child := range b.children {
 		count += countVirtualRows(child)
 	}
@@ -222,6 +265,26 @@ func (w *windowsState) requestVirtualRanges(b *uiBox) {
 			w.virtualPending[b.node.id] = true
 			w.trace.rangeRequests++
 			w.emit(uiEvent{kind: "VisibleRangeChanged", nodeID: b.node.id, firstIndex: first, endIndex: end})
+		}
+	}
+	if b.node.kind == "VirtualGrid" {
+		firstRow, endRow, firstColumn, endColumn := virtualGridRange(b)
+		n := b.node
+		visibleRow := b.scrollY / n.rowHeight
+		visibleRowEnd := min64(n.itemCount, (b.scrollY+b.h+n.rowHeight-1)/n.rowHeight)
+		visibleColumn := b.scrollX / n.columnWidth
+		visibleColumnEnd := min64(n.columnCount, (b.scrollX+b.w+n.columnWidth-1)/n.columnWidth)
+		loadedRows := int64(0)
+		if n.loadedColumns > 0 {
+			loadedRows = int64(gridCellCount(n)) / n.loadedColumns
+		}
+		if n.firstIndex > visibleRow || n.firstIndex+loadedRows < visibleRowEnd || n.firstColumn > visibleColumn || n.firstColumn+n.loadedColumns < visibleColumnEnd {
+			rangeKey := [4]int64{firstRow, endRow, firstColumn, endColumn}
+			if w.gridRequested[n.id] != rangeKey {
+				w.gridRequested[n.id] = rangeKey
+				w.trace.rangeRequests++
+				w.emit(uiEvent{kind: "VisibleGridRangeChanged", nodeID: n.id, firstIndex: firstRow, endIndex: endRow, firstColumn: firstColumn, endColumn: endColumn})
+			}
 		}
 	}
 	for _, child := range b.children {
@@ -252,11 +315,17 @@ func (w *windowsState) initRenderer() {
 	}
 	if os.Getenv("CRAFT_UI_RENDERER") == "gdi" {
 		w.gpuUnavailable = true
+		if w.trace.enabled {
+			w.trace.rendererFallback = "forced by CRAFT_UI_RENDERER=gdi"
+		}
 		return
 	}
 	d, err := newDirect2D()
 	if err != nil {
 		w.gpuUnavailable = true
+		if w.trace.enabled {
+			w.trace.rendererFallback = err.Error()
+		}
 		return
 	}
 	var rect windowsRect
@@ -264,6 +333,9 @@ func (w *windowsState) initRenderer() {
 	if err := d.ensureTarget(w.hwnd, rect.right-rect.left, rect.bottom-rect.top, w.scale); err != nil {
 		d.close()
 		w.gpuUnavailable = true
+		if w.trace.enabled {
+			w.trace.rendererFallback = err.Error()
+		}
 		return
 	}
 	w.gpu = d
@@ -338,14 +410,107 @@ func (w *windowsState) relayout() {
 		}
 		w.trace.record(&w.trace.layout, time.Since(layoutStarted))
 		w.trace.overflowNodes = overflow
-		if w.focused != "" {
-			w.scrollFocusIntoView(w.focused)
-		}
+		// Restored scroll offsets belong to the user. A data-driven relayout
+		// (for example, a VirtualGrid range response) must not pull an outer
+		// ScrollView back to an editor that still owns keyboard focus.
+		// Explicit focus changes call scrollFocusIntoView in focusNode instead.
 		w.positionInputs()
 	}
 	if w.hwnd != 0 {
 		uiInvalidateRect.Call(w.hwnd, 0, 1)
+		if w.trace.enabled {
+			w.trace.fullRedraws++
+		}
 	}
+}
+
+func (w *windowsState) gridNavigate(box *uiBox, key uintptr) bool {
+	n := box.node
+	row, column := n.selectedRow, n.selectedColumn
+	if !n.hasGridSelection {
+		row, column = 0, 0
+	}
+	switch key {
+	case 0x25:
+		column-- // Left
+	case 0x27:
+		column++ // Right
+	case 0x26:
+		row-- // Up
+	case 0x28:
+		row++ // Down
+	case 0x21:
+		row -= max64(1, box.h/n.rowHeight) // PageUp
+	case 0x22:
+		row += max64(1, box.h/n.rowHeight) // PageDown
+	case 0x24: // Home
+		column = 0
+		if keyModifiers()&2 != 0 {
+			row = 0
+		}
+	case 0x23: // End
+		column = n.columnCount - 1
+		if keyModifiers()&2 != 0 {
+			row = n.itemCount - 1
+		}
+	default:
+		return false
+	}
+	row = min64(max64(row, 0), n.itemCount-1)
+	column = min64(max64(column, 0), n.columnCount-1)
+	if n.hasGridSelection && row == n.selectedRow && column == n.selectedColumn {
+		return true
+	}
+	w.focusVisible = true
+	dx, dy := int64(0), int64(0)
+	left, top := column*n.columnWidth, row*n.rowHeight
+	if left < box.scrollX {
+		dx = left - box.scrollX
+	} else if left+n.columnWidth > box.scrollX+box.w {
+		dx = left + n.columnWidth - box.scrollX - box.w
+	}
+	if top < box.scrollY {
+		dy = top - box.scrollY
+	} else if top+n.rowHeight > box.scrollY+box.h {
+		dy = top + n.rowHeight - box.scrollY - box.h
+	}
+	if dx != 0 || dy != 0 {
+		w.applyScroll(box, dx, dy)
+	}
+	w.emit(uiEvent{kind: "GridSelectionMoved", nodeID: n.id, firstIndex: row, firstColumn: column, key: int64(key), mod: keyModifiers()})
+	return true
+}
+
+func (w *windowsState) dragGridTo(x, y int64) bool {
+	if w.gridDragID == "" {
+		return false
+	}
+	box := nodeBox(w.layout, w.gridDragID)
+	if box == nil || box.node.kind != "VirtualGrid" {
+		return false
+	}
+	var dx, dy int64
+	if x < box.x {
+		dx = -box.node.columnWidth
+	} else if x >= box.x+box.w {
+		dx = box.node.columnWidth
+	}
+	if y < box.y {
+		dy = -box.node.rowHeight
+	} else if y >= box.y+box.h {
+		dy = box.node.rowHeight
+	}
+	if dx != 0 || dy != 0 {
+		w.applyScroll(box, dx, dy)
+	}
+	column := clamp64((clamp64(x, box.x, box.x+box.w-1)-box.x+box.scrollX)/box.node.columnWidth, 0, box.node.columnCount-1)
+	row := clamp64((clamp64(y, box.y, box.y+box.h-1)-box.y+box.scrollY)/box.node.rowHeight, 0, box.node.itemCount-1)
+	if row == w.gridDragRow && column == w.gridDragColumn {
+		return false
+	}
+	w.gridDragRow, w.gridDragColumn = row, column
+	w.emit(uiEvent{kind: "GridRangeDragged", nodeID: box.node.id, firstIndex: w.gridDragAnchorRow, endIndex: row, firstColumn: w.gridDragAnchorColumn, endColumn: column, mod: keyModifiers()})
+	return true
 }
 
 func (w *windowsState) applyScroll(box *uiBox, dx, dy int64) bool {
@@ -491,11 +656,16 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 		return
 	}
 	w.paintVisible++
-	if b.node.kind == "Panel" || b.node.kind == "Button" {
+	if b.node.kind == "Panel" || b.node.kind == "Button" || b.node.kind == "VirtualGrid" ||
+		((b.node.kind == "Text" || b.node.kind == "TextInput") && b.node.customSurface) {
 		if b.node.customSurface {
 			fill := b.node.surfaceFill
 			if b.node.kind == "Button" && b.node.disabled {
 				fill = 0xffa39592
+			} else if b.node.kind == "Button" && w.pressed == b.node.id {
+				fill = darkenUIFill(fill, 18)
+			} else if b.node.kind == "Button" && w.hovered == b.node.id {
+				fill = darkenUIFill(fill, 8)
 			}
 			brush, _, _ := uiCreateBrush.Call(gdiColor(fill))
 			if brush != 0 {
@@ -513,7 +683,11 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 				uiDeleteObject.Call(brush)
 			}
 			if b.node.surfaceBorder>>24 != 0 {
-				pen, _, _ := uiCreatePen.Call(0, uintptr(max64(1, int64(scale))), gdiColor(b.node.surfaceBorder))
+				borderColor := b.node.surfaceBorder
+				if b.node.kind == "TextInput" && w.focused == b.node.id {
+					borderColor = 0xff265ccc
+				}
+				pen, _, _ := uiCreatePen.Call(0, uintptr(max64(1, int64(scale))), gdiColor(borderColor))
 				if pen != 0 {
 					oldPen, _, _ := uiSelectObject.Call(hdc, pen)
 					hollow, _, _ := uiGetStockObject.Call(5)
@@ -532,6 +706,9 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 		}
 		if !b.node.customSurface {
 			color := uintptr(0x00F3F4F6)
+			if b.node.kind == "VirtualGrid" {
+				color = 0x00FFFFFF
+			}
 			if b.node.kind == "Button" {
 				color = 0x00F16663
 				if b.node.disabled {
@@ -551,9 +728,33 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 			}
 		}
 	}
+	if b.node.kind == "VirtualGrid" {
+		if x, y, width, height, ok := virtualGridRangeRect(b); ok {
+			fill := uint32(0xffe8f0ff)
+			if b.node.customRangeStyle {
+				fill = b.node.rangeFill
+			}
+			saved, _, _ := uiSaveDC.Call(hdc)
+			uiIntersectClip.Call(hdc, uintptr(r.left), uintptr(r.top), uintptr(r.right), uintptr(r.bottom))
+			selection := windowsRect{int32(float64(x) * scale), int32(float64(y) * scale), int32(float64(x+width) * scale), int32(float64(y+height) * scale)}
+			brush, _, _ := uiCreateBrush.Call(gdiColor(fill))
+			if brush != 0 {
+				uiFillRect.Call(hdc, uintptr(unsafe.Pointer(&selection)), brush)
+				uiDeleteObject.Call(brush)
+			}
+			if saved != 0 {
+				uiRestoreDC.Call(hdc, ^uintptr(0))
+			}
+		}
+	}
 	if b.node.kind == "Text" || b.node.kind == "Button" {
 		saved, _, _ := uiSaveDC.Call(hdc)
 		uiIntersectClip.Call(hdc, uintptr(r.left), uintptr(r.top), uintptr(r.right), uintptr(r.bottom))
+		textRect := r
+		if b.gridCell && textRect.right-textRect.left > int32(16*scale) {
+			textRect.left += int32(8 * scale)
+			textRect.right -= int32(6 * scale)
+		}
 		var styledFont, oldStyled uintptr
 		if b.node.customTextStyle {
 			face, _ := syscall.UTF16PtrFromString("Segoe UI")
@@ -577,6 +778,12 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 			if b.node.kind == "Button" {
 				flags |= 0x0001
 			} // horizontal center
+			if b.node.kind == "Text" && b.node.alignX == 2 {
+				flags |= 0x0001 // DT_CENTER
+			}
+			if b.node.kind == "Text" && b.node.alignX == 3 {
+				flags |= 0x0002 // DT_RIGHT
+			}
 			if b.node.wrapText {
 				for i, line := range b.lines {
 					text, textErr := syscall.UTF16PtrFromString(line)
@@ -588,7 +795,7 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 					uiDrawText.Call(hdc, uintptr(unsafe.Pointer(text)), ^uintptr(0), uintptr(unsafe.Pointer(&lineRect)), 0x0020|0x0800)
 				}
 			} else {
-				uiDrawText.Call(hdc, uintptr(unsafe.Pointer(value)), ^uintptr(0), uintptr(unsafe.Pointer(&r)), flags)
+				uiDrawText.Call(hdc, uintptr(unsafe.Pointer(value)), ^uintptr(0), uintptr(unsafe.Pointer(&textRect)), flags)
 			}
 		}
 		if styledFont != 0 {
@@ -602,12 +809,12 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 	if b.node.kind == "Canvas" {
 		w.paintCanvasGDI(hdc, b)
 	}
-	if b.node.kind == "Button" && w.focused == b.node.id {
+	if b.node.kind == "Button" && w.focused == b.node.id && w.focusVisible {
 		w.paintFocusRingGDI(hdc, r)
 	}
 	if b.node.kind == "Canvas" {
 		for _, draw := range b.node.draws {
-			if draw.kind == "hitRegion" && draw.target == w.focused {
+			if draw.kind == "hitRegion" && draw.target == w.focused && w.focusVisible {
 				w.paintFocusRingGDI(hdc, windowsRect{int32(float64(b.x+draw.x) * scale), int32(float64(b.y+draw.y) * scale), int32(float64(b.x+draw.x+draw.w) * scale), int32(float64(b.y+draw.y+draw.h) * scale)})
 			}
 		}
@@ -620,6 +827,65 @@ func (w *windowsState) paintBox(hdc uintptr, b *uiBox, dirty windowsRect) {
 		}
 		if saved != 0 {
 			uiRestoreDC.Call(hdc, ^uintptr(0))
+		}
+	}
+	if b.node.kind == "VirtualGrid" {
+		pen, _, _ := uiCreatePen.Call(0, 1, 0x00EBE0D8)
+		if pen != 0 {
+			oldPen, _, _ := uiSelectObject.Call(hdc, pen)
+			hollow, _, _ := uiGetStockObject.Call(5)
+			oldBrush, _, _ := uiSelectObject.Call(hdc, hollow)
+			saved, _, _ := uiSaveDC.Call(hdc)
+			uiIntersectClip.Call(hdc, uintptr(r.left), uintptr(r.top), uintptr(r.right), uintptr(r.bottom))
+			for _, cell := range b.children[:gridCellCount(b.node)] {
+				left, top := int32(float64(cell.x)*scale), int32(float64(cell.y)*scale)
+				right, bottom := int32(float64(cell.x+cell.w)*scale), int32(float64(cell.y+cell.h)*scale)
+				uiRectangle.Call(hdc, uintptr(left), uintptr(top), uintptr(right), uintptr(bottom))
+			}
+			if saved != 0 {
+				uiRestoreDC.Call(hdc, ^uintptr(0))
+			}
+			uiSelectObject.Call(hdc, oldBrush)
+			uiSelectObject.Call(hdc, oldPen)
+			uiDeleteObject.Call(pen)
+		}
+		if x, y, width, height, ok := virtualGridSelectionRect(b); ok {
+			pen, _, _ := uiCreatePen.Call(0, uintptr(max64(2, int64(scale*2))), gdiColor(0xff2563eb))
+			if pen != 0 {
+				oldPen, _, _ := uiSelectObject.Call(hdc, pen)
+				hollow, _, _ := uiGetStockObject.Call(5)
+				oldBrush, _, _ := uiSelectObject.Call(hdc, hollow)
+				saved, _, _ := uiSaveDC.Call(hdc)
+				uiIntersectClip.Call(hdc, uintptr(r.left), uintptr(r.top), uintptr(r.right), uintptr(r.bottom))
+				uiRectangle.Call(hdc, uintptr(int32(float64(x)*scale)), uintptr(int32(float64(y)*scale)), uintptr(int32(float64(x+width)*scale)), uintptr(int32(float64(y+height)*scale)))
+				if saved != 0 {
+					uiRestoreDC.Call(hdc, ^uintptr(0))
+				}
+				uiSelectObject.Call(hdc, oldBrush)
+				uiSelectObject.Call(hdc, oldPen)
+				uiDeleteObject.Call(pen)
+			}
+		}
+		if x, y, width, height, ok := virtualGridRangeRect(b); ok && width > 2 && height > 2 {
+			border := uint32(0xff2563eb)
+			if b.node.customRangeStyle {
+				border = b.node.rangeBorder
+			}
+			pen, _, _ := uiCreatePen.Call(0, uintptr(max64(2, int64(scale*2))), gdiColor(border))
+			if pen != 0 {
+				oldPen, _, _ := uiSelectObject.Call(hdc, pen)
+				hollow, _, _ := uiGetStockObject.Call(5)
+				oldBrush, _, _ := uiSelectObject.Call(hdc, hollow)
+				saved, _, _ := uiSaveDC.Call(hdc)
+				uiIntersectClip.Call(hdc, uintptr(r.left), uintptr(r.top), uintptr(r.right), uintptr(r.bottom))
+				uiRectangle.Call(hdc, uintptr(int32(float64(x)*scale)), uintptr(int32(float64(y)*scale)), uintptr(int32(float64(x+width)*scale)), uintptr(int32(float64(y+height)*scale)))
+				if saved != 0 {
+					uiRestoreDC.Call(hdc, ^uintptr(0))
+				}
+				uiSelectObject.Call(hdc, oldBrush)
+				uiSelectObject.Call(hdc, oldPen)
+				uiDeleteObject.Call(pen)
+			}
 		}
 	}
 	if sx, sy, sw, sh, ok := scrollbarThumb(b); ok {
@@ -675,6 +941,10 @@ func (w *windowsState) emit(event uiEvent) {
 	event.windowID = 1
 	event.scale = w.scale
 	event.at = time.Now()
+	if event.kind == "VisibleGridRangeChanged" || event.kind == "GridRangeDragged" {
+		w.ui.queueGridRange(event)
+		return
+	}
 	select {
 	case w.ui.events <- event:
 	default:
@@ -706,6 +976,23 @@ func keyModifiers() int64 {
 	return flags
 }
 
+func (w *windowsState) restoreClientCursor() {
+	if w.hwnd == 0 || uiArrowCursor == 0 {
+		return
+	}
+	var point windowsPoint
+	if ok, _, _ := uiGetCursorPos.Call(uintptr(unsafe.Pointer(&point))); ok == 0 {
+		return
+	}
+	// WindowFromPoint takes POINT by value. Only reset our own client cursor;
+	// native inputs keep their I-beam and other windows keep their cursor.
+	packed := uintptr(uint64(uint32(point.x)) | uint64(uint32(point.y))<<32)
+	underCursor, _, _ := uiWindowFromPoint.Call(packed)
+	if underCursor == w.hwnd {
+		uiSetCursor.Call(uiArrowCursor)
+	}
+}
+
 func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 	v, ok := uiWindows.Load(hwnd)
 	if !ok {
@@ -714,6 +1001,12 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 	}
 	w := v.(*windowsState)
 	switch msg {
+	case wmSetCursor:
+		// Leave native child controls and the non-client area to Windows.
+		if wParam == hwnd && uint16(lParam) == htClient {
+			uiSetCursor.Call(uiArrowCursor)
+			return 1
+		}
 	case wmGetObject:
 		if uint32(lParam) == uiaRootObjectID {
 			p := w.uiaRootProvider()
@@ -751,6 +1044,9 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		w.relayout()
 		w.emit(uiEvent{kind: "Resized", width: w.width, height: w.height})
 	case wmLeftButtonDown:
+		w.gridDragID = ""
+		w.focusVisible = false
+		w.invalidateButton(w.focused)
 		x, y := w.logical(int64(int16(lParam))), w.logical(int64(int16(lParam>>16)))
 		w.emit(uiEvent{kind: "PointerDown", x: x, y: y, mod: keyModifiers()})
 		for _, box := range scrollChainAt(w.layout, x, y) {
@@ -786,10 +1082,23 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			}
 			return 0
 		}
+		if box := scrollAt(w.layout, x, y); box != nil && box.node.kind == "VirtualGrid" {
+			row := (y - box.y + box.scrollY) / box.node.rowHeight
+			column := (x - box.x + box.scrollX) / box.node.columnWidth
+			if row < box.node.itemCount && column < box.node.columnCount && w.allowedInScope(box.node.id) {
+				w.gridDragID, w.gridDragAnchorRow, w.gridDragAnchorColumn = box.node.id, row, column
+				w.gridDragRow, w.gridDragColumn = row, column
+				w.focusVisible = false
+				w.focusNode(box.node.id)
+				w.activeScroll = box.node.id
+				w.emit(uiEvent{kind: "GridCellPressed", nodeID: box.node.id, firstIndex: row, firstColumn: column, x: x, y: y, mod: keyModifiers()})
+			}
+		}
 		w.pressed = hitButton(w.layout, x, y)
 		if !w.allowedInScope(w.pressed) {
 			w.pressed = ""
 		}
+		w.invalidateButton(w.pressed)
 		w.pressedCanvas = ""
 		w.pressedTarget = ""
 		if box := hitCanvas(w.layout, x, y); box != nil {
@@ -809,6 +1118,7 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		}
 		uiSetCapture.Call(hwnd)
 	case wmLeftButtonUp:
+		w.gridDragID = ""
 		x, y := w.logical(int64(int16(lParam))), w.logical(int64(int16(lParam>>16)))
 		w.emit(uiEvent{kind: "PointerUp", x: x, y: y, mod: keyModifiers()})
 		if w.scrollDragID != "" {
@@ -819,6 +1129,7 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		}
 		pressed := w.pressed
 		w.pressed = ""
+		w.invalidateButton(pressed)
 		canvasPressed := w.pressedCanvas
 		w.pressedCanvas = ""
 		pressedTarget := w.pressedTarget
@@ -847,6 +1158,7 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		x, y := w.logical(int64(int16(lParam))), w.logical(int64(int16(lParam>>16)))
 		w.emit(uiEvent{kind: "PointerDoubleClicked", x: x, y: y, mod: keyModifiers()})
 	case wmCaptureChanged:
+		w.gridDragID = ""
 		w.pressed = ""
 		w.pressedCanvas = ""
 		w.pressedTarget = ""
@@ -855,6 +1167,7 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 	case wmMouseMove:
 		x, y := w.logical(int64(int16(lParam))), w.logical(int64(int16(lParam>>16)))
 		w.lastPointerX, w.lastPointerY = x, y
+		w.dragGridTo(x, y)
 		var target string
 		var canvasBox *uiBox
 		if box := hitCanvas(w.layout, x, y); box != nil {
@@ -886,7 +1199,10 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			if box := scrollByID(w.layout, w.scrollDragID); box != nil {
 				if w.scrollDragHorizontal {
 					_, _, thumb, _, visible := horizontalScrollbarThumb(box)
-					content := box.children[0].w
+					content := box.node.columnCount * box.node.columnWidth
+					if box.node.kind == "ScrollView" {
+						content = box.children[0].w
+					}
 					if visible && box.w-8-thumb > 0 {
 						position := clamp64(x-box.x-4-w.scrollDragOffset, 0, box.w-8-thumb)
 						next := position * (content - box.w) / (box.w - 8 - thumb)
@@ -973,6 +1289,9 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 			w.emit(uiEvent{kind: "CanvasTargetPressed", nodeID: w.focused, key: int64(wParam), mod: keyModifiers()})
 			return 0
 		}
+		if box := nodeBox(w.layout, w.focused); box != nil && box.node.kind == "VirtualGrid" && w.gridNavigate(box, wParam) {
+			return 0
+		}
 		if box := scrollByID(w.layout, w.activeScroll); box != nil {
 			switch wParam {
 			case 0x21:
@@ -1029,30 +1348,58 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 	case wmCommand:
 		w.inputCommand(wParam, lParam)
 		return 0
+	case wmCtlColorEdit, wmCtlColorStatic:
+		if input, ok := uiTextWindows.Load(lParam); ok {
+			field := input.(*nativeTextInput)
+			if field.owner == w && field.fillBrush != 0 {
+				uiTextSetBkColor.Call(wParam, gdiColor(field.fill))
+				if field.disabled {
+					uiSetTextColor.Call(wParam, 0x00866f61)
+				}
+				return field.fillBrush
+			}
+		}
 	case wmPaint:
 		var paint windowsPaint
 		hdc, _, _ := uiBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&paint)))
 		if hdc != 0 {
 			started := time.Now()
 			w.paintVisible = 0
+			var canvasOps *int64
+			if w.trace.enabled {
+				w.trace.canvasPaintOps = 0
+				canvasOps = &w.trace.canvasPaintOps
+			}
 			w.initRenderer()
 			if w.gpu != nil {
 				var rect windowsRect
 				uiGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rect)))
 				if err := w.gpu.ensureTarget(hwnd, rect.right-rect.left, rect.bottom-rect.top, w.scale); err == nil {
-					if err := w.gpu.paint(w.layout, w.background, w.focused, w.hovered, paint.paint, w.scale, &w.paintVisible); err == nil {
+					if err := w.gpu.paint(w.layout, w.background, w.focused, w.hovered, w.pressed, w.focusVisible, paint.paint, w.scale, &w.paintVisible, canvasOps); err == nil {
+						if w.trace.enabled {
+							w.trace.renderer = "Direct2D"
+							w.trace.rendererFallback = ""
+						}
 						w.finishPaintTrace(started)
 						uiEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&paint)))
+						w.restoreClientCursor()
 						return 0
 					} else if errors.Is(err, errDirect2DDeviceLost) {
 						uiEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&paint)))
 						uiInvalidateRect.Call(hwnd, 0, 1)
 						return 0
+					} else if w.trace.enabled {
+						w.trace.rendererFallback = err.Error()
 					}
+				} else if w.trace.enabled {
+					w.trace.rendererFallback = err.Error()
 				}
 				w.gpu.close()
 				w.gpu = nil
 				w.gpuUnavailable = true
+			}
+			if w.trace.enabled {
+				w.trace.renderer = "GDI"
 			}
 			uiFillRect.Call(hdc, uintptr(unsafe.Pointer(&paint.paint)), w.brush)
 			face, _ := syscall.UTF16PtrFromString("Segoe UI")
@@ -1069,6 +1416,7 @@ func windowProcedure(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 				uiDeleteObject.Call(font)
 			}
 			uiEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&paint)))
+			w.restoreClientCursor()
 		}
 		return 0
 	}
@@ -1080,13 +1428,64 @@ func registerUIClass() error {
 	uiClassOnce.Do(func() {
 		class, _ := syscall.UTF16PtrFromString("CraftUiBridge13")
 		module, _, _ := uiModuleHandle.Call(0)
-		wc := windowsClass{size: uint32(unsafe.Sizeof(windowsClass{})), style: 0x0008, proc: uiWndProc, instance: module, className: uintptr(unsafe.Pointer(class))}
+		cursor, _, cursorErr := uiLoadCursor.Call(0, idcArrow)
+		if cursor == 0 {
+			uiClassErr = fmt.Errorf("UiUnavailable: load arrow cursor: %v", cursorErr)
+			return
+		}
+		uiArrowCursor = cursor
+		wc := windowsClass{size: uint32(unsafe.Sizeof(windowsClass{})), style: 0x0008, proc: uiWndProc, instance: module, cursor: cursor, className: uintptr(unsafe.Pointer(class))}
 		result, _, err := uiRegisterClass.Call(uintptr(unsafe.Pointer(&wc)))
 		if result == 0 {
 			uiClassErr = fmt.Errorf("UiUnavailable: register window class: %v", err)
 		}
 	})
 	return uiClassErr
+}
+
+func (w *windowsState) setWindowIcon(path string) error {
+	if !strings.EqualFold(filepath.Ext(path), ".ico") {
+		return fmt.Errorf("UiArgumentError: window icon must be an .ico file")
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("UiArgumentError: window icon file is unavailable: %s", path)
+	}
+	name, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return fmt.Errorf("UiArgumentError: window icon path contains NUL")
+	}
+	smallSize := uintptr(16)
+	bigSize := uintptr(32)
+	if w.scale > 1 {
+		smallSize = uintptr(16*w.scale + 0.5)
+		bigSize = uintptr(32*w.scale + 0.5)
+	}
+	big, _, bigErr := uiLoadImage.Call(0, uintptr(unsafe.Pointer(name)), imageIcon, bigSize, bigSize, lrLoadFromFile)
+	if big == 0 {
+		return fmt.Errorf("UiArgumentError: could not load window icon: %v", bigErr)
+	}
+	small, _, smallErr := uiLoadImage.Call(0, uintptr(unsafe.Pointer(name)), imageIcon, smallSize, smallSize, lrLoadFromFile)
+	if small == 0 {
+		uiDestroyIcon.Call(big)
+		return fmt.Errorf("UiArgumentError: could not load small window icon: %v", smallErr)
+	}
+	uiSendMessage.Call(w.hwnd, wmSetIcon, iconBig, big)
+	uiSendMessage.Call(w.hwnd, wmSetIcon, iconSmall, small)
+	w.releaseWindowIcons()
+	w.windowIconBig, w.windowIconSmall = big, small
+	return nil
+}
+
+func (w *windowsState) releaseWindowIcons() {
+	if w.windowIconBig != 0 {
+		uiDestroyIcon.Call(w.windowIconBig)
+		w.windowIconBig = 0
+	}
+	if w.windowIconSmall != 0 {
+		uiDestroyIcon.Call(w.windowIconSmall)
+		w.windowIconSmall = 0
+	}
 }
 
 func startUI(ctx context.Context) (*uiSession, error) {
@@ -1097,7 +1496,7 @@ func startUI(ctx context.Context) (*uiSession, error) {
 	if wake == 0 {
 		return nil, fmt.Errorf("UiUnavailable: create wake event: %v", err)
 	}
-	u := &uiSession{commands: make(chan uiCommand, 64), events: make(chan uiEvent, 1024), done: make(chan struct{}), wake: wake}
+	u := &uiSession{commands: make(chan uiCommand, 64), events: make(chan uiEvent, 1024), gridWake: make(chan struct{}, 1), gridLatest: make(map[string]uiEvent), done: make(chan struct{}), wake: wake}
 	go runUIHost(ctx, u)
 	return u, nil
 }
@@ -1138,7 +1537,7 @@ func runUIHost(ctx context.Context, u *uiSession) {
 	defer u.closeWake()
 	stopWake := context.AfterFunc(ctx, u.wakeHost)
 	defer stopWake()
-	state := &windowsState{ui: u, scale: 1, background: 0xffffff, trace: newUITrace(), virtualPending: make(map[string]bool), inputs: make(map[string]*nativeTextInput)}
+	state := &windowsState{ui: u, scale: 1, background: 0xffffff, trace: newUITrace(), virtualPending: make(map[string]bool), gridRequested: make(map[string][4]int64), inputs: make(map[string]*nativeTextInput)}
 	defer func() {
 		state.trace.report()
 		state.closeUIA()
@@ -1151,6 +1550,7 @@ func runUIHost(ctx context.Context, u *uiSession) {
 			uiWindows.Delete(state.hwnd)
 			uiDestroyWindow.Call(state.hwnd)
 		}
+		state.releaseWindowIcons()
 		if state.brush != 0 {
 			uiDeleteObject.Call(state.brush)
 		}
@@ -1248,6 +1648,20 @@ func executeUICommand(state *windowsState, cmd uiCommand) uiReply {
 		uiGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rect)))
 		state.width, state.height = state.logical(int64(rect.right-rect.left)), state.logical(int64(rect.bottom-rect.top))
 		state.initRenderer()
+		// Windows clears process startup feedback after the first GetMessage call.
+		// Post a no-op first so the command-driven host never blocks here.
+		posted, _, postErr := uiPostMessage.Call(hwnd, wmNull, 0, 0)
+		if posted == 0 {
+			return uiReply{err: fmt.Errorf("UiHostError: post startup message: %v", postErr)}
+		}
+		var startupMessage windowsMessage
+		got, _, getErr := uiGetMessage.Call(uintptr(unsafe.Pointer(&startupMessage)), 0, 0, 0)
+		if got == 0 || got == ^uintptr(0) {
+			return uiReply{err: fmt.Errorf("UiHostError: get startup message: %v", getErr)}
+		}
+		uiTranslateMessage.Call(uintptr(unsafe.Pointer(&startupMessage)))
+		uiDispatchMessage.Call(uintptr(unsafe.Pointer(&startupMessage)))
+		uiSetCursor.Call(uiArrowCursor)
 		return uiReply{id: 1}
 	case "std.ui.closeWindow":
 		if state.hwnd == 0 {
@@ -1262,6 +1676,7 @@ func executeUICommand(state *windowsState, cmd uiCommand) uiReply {
 		state.closeAccessibilityAnnotation()
 		uiWindows.Delete(state.hwnd)
 		uiDestroyWindow.Call(state.hwnd)
+		state.releaseWindowIcons()
 		state.hwnd = 0
 		state.root, state.layout = nil, nil
 		state.focused, state.hovered, state.pressed = "", "", ""
@@ -1282,6 +1697,21 @@ func executeUICommand(state *windowsState, cmd uiCommand) uiReply {
 		if ok == 0 {
 			return uiReply{err: fmt.Errorf("UiHostError: set title: %v", e)}
 		}
+		return uiReply{}
+	case "std.ui.setWindowIcon":
+		if state.hwnd == 0 {
+			return uiReply{err: fmt.Errorf("UiInvalidHandle: window already closed")}
+		}
+		return uiReply{err: state.setWindowIcon(cmd.value)}
+	case "std.ui.maximizeWindow":
+		if state.hwnd == 0 {
+			return uiReply{err: fmt.Errorf("UiInvalidHandle: window already closed")}
+		}
+		uiShowWindow.Call(state.hwnd, swMaximize)
+		var rect windowsRect
+		uiGetClientRect.Call(state.hwnd, uintptr(unsafe.Pointer(&rect)))
+		state.width, state.height = state.logical(int64(rect.right-rect.left)), state.logical(int64(rect.bottom-rect.top))
+		state.relayout()
 		return uiReply{}
 	case "std.ui.setBackground":
 		if state.hwnd == 0 {
@@ -1308,6 +1738,17 @@ func executeUICommand(state *windowsState, cmd uiCommand) uiReply {
 			return uiReply{text: "direct2d-hardware"}
 		}
 		return uiReply{text: "gdi"}
+	case "std.ui.clipboardReadText":
+		if state.hwnd == 0 {
+			return uiReply{err: fmt.Errorf("UiInvalidHandle: window already closed")}
+		}
+		value, err := readClipboardText(state.hwnd)
+		return uiReply{text: value, err: err}
+	case "std.ui.clipboardWriteText":
+		if state.hwnd == 0 {
+			return uiReply{err: fmt.Errorf("UiInvalidHandle: window already closed")}
+		}
+		return uiReply{err: writeClipboardText(state.hwnd, cmd.value)}
 	case "std.ui.viewportWidth":
 		if state.hwnd == 0 {
 			return uiReply{err: fmt.Errorf("UiInvalidHandle: window already closed")}
@@ -1403,34 +1844,29 @@ func executeUICommand(state *windowsState, cmd uiCommand) uiReply {
 		}
 		state.syncInputScope()
 		clear(state.virtualPending)
+		clear(state.gridRequested)
 		state.focused = oldFocus
 		if !hasFocusable(cmd.root, oldFocus) || !state.allowedInScope(oldFocus) {
 			state.focusNode(firstFocusable(state.activeFocusRoot()))
 		}
 		state.hovered = ""
 		if state.layout != nil {
-			var changed []*uiBox
-			if rebindLayout(state.layout, cmd.root, &changed) {
+			var changed []uiChange
+			if rebindLayoutDetailed(state.layout, cmd.root, &changed) {
 				measure, closeMeasure := state.textMeasurer()
 				geometryChanged := false
-				for _, box := range changed {
+				for _, change := range changed {
+					box := change.box
 					if box.node.kind != "Text" && box.node.kind != "Button" && box.node.kind != "TextInput" {
 						continue
 					}
-					mw, mh := measure(box.node)
-					if box.node.kind == "Button" {
-						mw += 20
-						mh += 12
-						if mh < 32 {
-							mh = 32
-						}
-					} else {
-						mw += 4
-						mh += 4
-						if mh < 24 {
-							mh = 24
-						}
-					}
+					if box.gridCell {
+						continue
+					} // VirtualGrid fixes cell geometry.
+					mw, mh := measuredLeafSize(box.node, measure)
+					candidate := &uiBox{node: box.node, prefW: mw, prefH: mh}
+					applyPreferredSize(candidate)
+					mw, mh = candidate.prefW, candidate.prefH
 					if mw != box.prefW || mh != box.prefH {
 						geometryChanged = true
 						break
@@ -1441,17 +1877,11 @@ func executeUICommand(state *windowsState, cmd uiCommand) uiReply {
 					state.relayout()
 					return uiReply{}
 				}
-				var dirtyArea int64
-				for _, box := range changed {
-					dirtyArea += box.w * box.h
+				dirty := newUIDirtyRegions(state)
+				for _, change := range changed {
+					dirty.addChange(change)
 				}
-				if len(changed) > 16 || (state.width > 0 && state.height > 0 && dirtyArea > state.width*state.height/2) {
-					uiInvalidateRect.Call(state.hwnd, 0, 0)
-				} else {
-					for _, box := range changed {
-						state.invalidateBox(box)
-					}
-				}
+				dirty.invalidate()
 				if oldFocus != state.focused {
 					state.invalidateButton(oldFocus)
 					state.invalidateButton(state.focused)

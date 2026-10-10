@@ -53,9 +53,11 @@ func NativeStructs() []*ast.Struct {
 	response.Name = "HttpResponse"
 	config := fields([]string{"address", "maxConcurrent", "maxConnections", "maxBodyBytes", "maxHeaderBytes", "readTimeoutMs", "writeTimeoutMs", "idleTimeoutMs", "requestTimeoutMs", "shutdownTimeoutMs"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int})
 	config.Name = "HttpConfig"
-	uiEvent := fields([]string{"kind", "windowId", "x", "y", "width", "height", "keyCode", "modifiers", "scale", "nodeId", "firstIndex", "endIndex", "text"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Float, ast.String, ast.Int, ast.Int, ast.String})
+	uiEvent := fields([]string{"kind", "windowId", "x", "y", "width", "height", "keyCode", "modifiers", "scale", "nodeId", "firstIndex", "endIndex", "text", "firstColumn", "endColumn"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Float, ast.String, ast.Int, ast.Int, ast.String, ast.Int, ast.Int})
 	uiEvent.Name = "UiEvent"
-	return append([]*ast.Struct{request, response, config, uiEvent}, dbStructs()...)
+	result := append([]*ast.Struct{request, response, config, uiEvent}, dbStructs()...)
+	result = append(result, rev43DataStructs()...)
+	return append(result, rev43ProcessStruct())
 }
 func nativeStruct(name string, values ...any) *rt.Struct {
 	for _, s := range NativeStructs() {

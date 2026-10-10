@@ -89,7 +89,7 @@ func Format(file, source string) (string, error) {
 		}
 		if line == "" {
 			lineIndent = indent
-			if groups > 0 {
+			if groups > 0 && k != ")" && k != "]" {
 				lineIndent++
 			}
 		}

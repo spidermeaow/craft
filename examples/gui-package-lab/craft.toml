@@ -4,4 +4,4 @@ edition = "2026"
 entry = "main"
 
 [dependencies]
-gui = { path = "../../packages/gui", version = "0.2.8" }
+gui = { path = "../../packages/gui" }

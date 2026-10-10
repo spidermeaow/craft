@@ -1,0 +1,30 @@
+import package db "db"
+func main() {
+    let driver: String = std.env.get("CRAFT_DB_DRIVER")
+    let dsn: String = std.env.get("CRAFT_DB_DSN")
+    if driver == "" || dsn == "" {
+        throw Exception("Set CRAFT_DB_DRIVER and CRAFT_DB_DSN")
+    }
+    let connection: DbConnection = std.db.connect(driver, dsn, std.db.config())
+    defer {
+        std.db.close(connection)
+    }
+    var sql: String = "SELECT DATABASE() AS database_name"
+    if driver == "postgres" {
+        sql = "SELECT current_database() AS database_name"
+    }
+    if driver == "sqlserver" {
+        sql = "SELECT DB_NAME() AS database_name"
+    }
+    let result: DbRows = std.db.query(connection, sql, [])
+    let name: String = db.requiredText(result, db.requireOne(result), "database_name")
+    print("database: " + name)
+    let tx: DbTransaction = std.db.begin(connection)
+    defer {
+        std.db.rollback(tx)
+    }
+    let inTx: DbRows = std.db.queryTx(tx, sql, [])
+    assert db.requiredText(inTx, db.requireOne(inTx), "database_name") == name
+    std.db.commit(tx)
+    print("transaction query: passed")
+}

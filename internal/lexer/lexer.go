@@ -14,6 +14,8 @@ type scanner struct {
 	input                []rune
 	file                 string
 	i, line, col, parens int
+	typeAngles           int
+	last, lastText       string
 	comments             bool
 	tokens               []Token
 }
@@ -37,7 +39,7 @@ func scan(file, source string, comments bool) ([]Token, error) {
 		}
 		if c == '\n' {
 			s.next()
-			if s.parens == 0 {
+			if s.comments || (s.parens == 0 && !continuesExpression(s.last)) {
 				s.emit("newline", "\n", p)
 			}
 			continue
@@ -136,6 +138,14 @@ func scan(file, source string, comments bool) ([]Token, error) {
 		switch c {
 		case '?', '+', '-', '*', '/', '%', '=', '!', '>', '<', '(', ')', '[', ']', '.', '{', '}', ',', ':', ';':
 			s.next()
+			genericOpen := c == '<' && (s.lastText == "Map" || s.lastText == "Fn")
+			genericClose := c == '>' && s.typeAngles > 0
+			if genericOpen {
+				s.typeAngles++
+			}
+			if genericClose {
+				s.typeAngles--
+			}
 			if c == '(' || c == '[' {
 				s.parens++
 			}
@@ -143,6 +153,9 @@ func scan(file, source string, comments bool) ([]Token, error) {
 				s.parens--
 			}
 			s.emit(string(c), string(c), p)
+			if genericClose {
+				s.last = "type-close"
+			}
 		default:
 			return nil, diagnostics.New(p, "syntax error: unexpected character %q", c)
 		}
@@ -175,4 +188,16 @@ func (s *scanner) pos() diagnostics.Position {
 }
 func (s *scanner) emit(k, t string, p diagnostics.Position) {
 	s.tokens = append(s.tokens, Token{Kind: k, Text: t, Pos: p})
+	if k != "newline" && k != "comment" && k != "eof" {
+		s.last = k
+		s.lastText = t
+	}
+}
+
+func continuesExpression(kind string) bool {
+	switch kind {
+	case ".", ",", ":", "=", "+=", "-=", "*=", "/=", "%=", "+", "-", "*", "/", "%", "!", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "..", "if", "while", "in", "throw", "assert":
+		return true
+	}
+	return false
 }

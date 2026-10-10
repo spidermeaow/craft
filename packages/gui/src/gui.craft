@@ -1,6 +1,8 @@
-// Craft GUI 0.2.8: reusable composition over the native std.ui runtime.
+// Craft GUI 0.1.42 candidate: reusable composition over the native std.ui runtime.
 export func openWindow(title: String, width: Int, height: Int): UiWindow { return std.ui.openWindow(title, width, height) }
+export func maximizeWindow(window: UiWindow) { std.ui.maximizeWindow(window) }
 export func setTitle(window: UiWindow, title: String) { std.ui.setTitle(window, title) }
+export func setWindowIcon(window: UiWindow, path: String) { std.ui.setWindowIcon(window, path) }
 export func setBackground(window: UiWindow, red: Int, green: Int, blue: Int) { std.ui.setBackground(window, red, green, blue) }
 export func closeWindow(window: UiWindow) { std.ui.closeWindow(window) }
 export func nextEvent(timeoutMs: Int): UiEvent? { return std.ui.nextEvent(timeoutMs) }
@@ -33,6 +35,13 @@ export func splitView(id: String, first: UiNode, second: UiNode, percent: Int, f
 export func scrollView(id: String, child: UiNode): UiNode { return std.ui.scrollView(id, child) }
 export func grid(id: String, items: UiNode[], minCellWidth: Int, maxColumns: Int, gap: Int): UiNode { return std.ui.grid(id, items, minCellWidth, maxColumns, gap) }
 export func virtualList(id: String, itemCount: Int, rowHeight: Int, firstIndex: Int, items: UiNode[]): UiNode { return std.ui.virtualList(id, itemCount, rowHeight, firstIndex, items) }
+export func virtualGrid(id: String, rowCount: Int, columnCount: Int, rowHeight: Int, columnWidth: Int, firstRow: Int, firstColumn: Int, loadedColumns: Int, cells: UiNode[]): UiNode { return std.ui.virtualGrid(id, rowCount, columnCount, rowHeight, columnWidth, firstRow, firstColumn, loadedColumns, cells) }
+export func gridSelection(node: UiNode, row: Int, column: Int): UiNode { return std.ui.gridSelection(node, row, column) }
+export func gridRangeSelection(node: UiNode, anchorRow: Int, anchorColumn: Int, focusRow: Int, focusColumn: Int): UiNode { return std.ui.gridRangeSelection(node, anchorRow, anchorColumn, focusRow, focusColumn) }
+export func gridRangeStyle(node: UiNode, fill: Int, border: Int): UiNode { return std.ui.gridRangeStyle(node, fill, border) }
+export func clipboardReadText(window: UiWindow): String { return std.ui.clipboardReadText(window) }
+export func clipboardWriteText(window: UiWindow, value: String) { std.ui.clipboardWriteText(window, value) }
+export func gridEditor(node: UiNode, row: Int, column: Int, editor: UiNode): UiNode { return std.ui.gridEditor(node, row, column, editor) }
 
 export func text(id: String, value: String): UiNode { return std.ui.text(id, value) }
 export func button(id: String, label: String): UiNode { return std.ui.button(id, label) }
@@ -40,12 +49,21 @@ export func textStyle(node: UiNode, size: Int, weight: Int, paint: Int): UiNode 
 export func textWrap(node: UiNode): UiNode { return std.ui.textWrap(node) }
 export func surface(node: UiNode, fill: Int, border: Int, radius: Int): UiNode { return std.ui.surface(node, fill, border, radius) }
 export func textInput(id: String, value: String, placeholder: String): UiNode { return std.ui.textInput(id, value, placeholder) }
+export func inputStyle(node: UiNode, fill: Int, border: Int, radius: Int): UiNode { return std.ui.inputStyle(node, fill, border, radius) }
 export func setText(window: UiWindow, id: String, value: String) { std.ui.setText(window, id, value) }
 
 export func color(red: Int, green: Int, blue: Int, alpha: Int): Int { return std.ui.color(red, green, blue, alpha) }
 export func fillRect(x: Int, y: Int, width: Int, height: Int, paint: Int, radius: Int): UiDraw { return std.ui.fillRect(x, y, width, height, paint, radius) }
 export func strokeRect(x: Int, y: Int, width: Int, height: Int, paint: Int, thickness: Int, radius: Int): UiDraw { return std.ui.strokeRect(x, y, width, height, paint, thickness, radius) }
 export func drawLine(x1: Int, y1: Int, x2: Int, y2: Int, paint: Int, thickness: Int): UiDraw { return std.ui.drawLine(x1, y1, x2, y2, paint, thickness) }
+export func pathMoveTo(x: Int, y: Int): UiDraw { return std.ui.pathMoveTo(x, y) }
+export func pathLineTo(x: Int, y: Int): UiDraw { return std.ui.pathLineTo(x, y) }
+export func pathArcTo(cx: Int, cy: Int, radius: Int, startDegrees: Int, sweepDegrees: Int): UiDraw { return std.ui.pathArcTo(cx, cy, radius, startDegrees, sweepDegrees) }
+export func pathQuadraticTo(cx: Int, cy: Int, x: Int, y: Int): UiDraw { return std.ui.pathQuadraticTo(cx, cy, x, y) }
+export func pathCubicTo(cx1: Int, cy1: Int, cx2: Int, cy2: Int, x: Int, y: Int): UiDraw { return std.ui.pathCubicTo(cx1, cy1, cx2, cy2, x, y) }
+export func pathClose(): UiDraw { return std.ui.pathClose() }
+export func fillPath(path: UiDraw[], paint: Int): UiDraw { return std.ui.fillPath(path, paint) }
+export func strokePath(path: UiDraw[], paint: Int, thickness: Int): UiDraw { return std.ui.strokePath(path, paint, thickness) }
 export func drawText(value: String, x: Int, y: Int, width: Int, height: Int, paint: Int): UiDraw { return std.ui.drawText(value, x, y, width, height, paint) }
 export func drawTextStyled(value: String, x: Int, y: Int, width: Int, height: Int, paint: Int, size: Int, weight: Int, alignment: String): UiDraw { return std.ui.drawTextStyled(value, x, y, width, height, paint, size, weight, alignment) }
 export func hitRegion(id: String, x: Int, y: Int, width: Int, height: Int): UiDraw { return std.ui.hitRegion(id, x, y, width, height) }
@@ -60,7 +78,8 @@ export func navigation(id: String, items: UiNode[]): UiNode { return std.ui.spac
 export func field(id: String, label: String, value: String, placeholder: String): UiNode {
     var parts: UiNode[] = []
     parts.append(std.ui.text(id + "-label", label))
-    parts.append(std.ui.accessible(std.ui.textInput(id + "-input", value, placeholder), label, "textbox"))
+    let input: UiNode = std.ui.inputStyle(std.ui.textInput(id + "-input", value, placeholder), std.ui.color(255, 255, 255, 255), borderColor(), 8)
+    parts.append(std.ui.maxSize(std.ui.size(std.ui.accessible(input, label, "textbox"), 0, 44, 0, 44, 0), 640, 0))
     return std.ui.spacing(std.ui.column(id, parts), smallSpacing(), smallSpacing())
 }
 
@@ -103,12 +122,79 @@ export func smallSpacing(): Int { return 4 }
 export func mediumSpacing(): Int { return 8 }
 export func largeSpacing(): Int { return 12 }
 
+// Theme values are owned by the app. No global mutable theme is kept by the package.
+export struct Theme {
+    let primary: Int
+    let primaryBorder: Int
+    let onPrimary: Int
+    let foreground: Int
+    let muted: Int
+    let surface: Int
+    let border: Int
+    let input: Int
+    let error: Int
+    let radius: Int
+    let controlHeight: Int
+    let gap: Int
+}
+
+export func lightTheme(): Theme {
+    return Theme(primary: std.ui.color(41, 106, 226, 255), primaryBorder: std.ui.color(18, 82, 187, 255), onPrimary: std.ui.color(255, 255, 255, 255), foreground: std.ui.color(30, 42, 62, 255), muted: std.ui.color(101, 119, 145, 255), surface: std.ui.color(255, 255, 255, 255), border: std.ui.color(211, 223, 237, 255), input: std.ui.color(255, 255, 255, 255), error: std.ui.color(185, 46, 55, 255), radius: 8, controlHeight: 44, gap: 8)
+}
+
+export func darkTheme(): Theme {
+    return Theme(primary: std.ui.color(95, 151, 255, 255), primaryBorder: std.ui.color(120, 172, 255, 255), onPrimary: std.ui.color(15, 27, 46, 255), foreground: std.ui.color(236, 241, 250, 255), muted: std.ui.color(165, 180, 202, 255), surface: std.ui.color(29, 39, 56, 255), border: std.ui.color(75, 94, 121, 255), input: std.ui.color(255, 255, 255, 255), error: std.ui.color(255, 133, 137, 255), radius: 8, controlHeight: 44, gap: 8)
+}
+
+export func themedHeading(id: String, value: String, theme: Theme): UiNode {
+    return std.ui.textStyle(std.ui.text(id, value), 22, 700, theme.foreground)
+}
+
+export func themedButton(id: String, label: String, primary: Bool, enabled: Bool, theme: Theme): UiNode {
+    var fill: Int = theme.surface
+    var border: Int = theme.border
+    var foreground: Int = theme.primary
+    if primary {
+        fill = theme.primary
+        border = theme.primaryBorder
+        foreground = theme.onPrimary
+    }
+    if !enabled {
+        fill = theme.surface
+        border = theme.border
+        foreground = theme.muted
+    }
+    let button: UiNode = std.ui.textStyle(std.ui.button(id, label), 16, 600, foreground)
+    let styled: UiNode = std.ui.surface(button, fill, border, theme.radius)
+    return std.ui.focusPolicy(std.ui.accessible(styled, label, "button"), enabled, enabled)
+}
+
+// The input keeps id + "-input" so TextChanged and setText can address it directly.
+export func themedField(id: String, label: String, value: String, placeholder: String, width: Int, enabled: Bool, theme: Theme): UiNode {
+    var parts: UiNode[] = []
+    parts.append(std.ui.textStyle(std.ui.text(id + "-label", label), 15, 600, theme.foreground))
+    let input: UiNode = std.ui.inputStyle(std.ui.textInput(id + "-input", value, placeholder), theme.input, theme.border, theme.radius)
+    let accessibleInput: UiNode = std.ui.accessible(input, label, "textbox")
+    parts.append(std.ui.size(std.ui.focusPolicy(accessibleInput, enabled, enabled), width, theme.controlHeight, 0, theme.controlHeight, 0))
+    return std.ui.spacing(std.ui.column(id, parts), 0, theme.gap)
+}
+
+export func fieldMessage(id: String, message: String, error: Bool, theme: Theme): UiNode {
+    var paint: Int = theme.muted
+    if error { paint = theme.error }
+    return std.ui.textWrap(std.ui.textStyle(std.ui.text(id, message), 13, 400, paint))
+}
+
 export func heading(id: String, value: String): UiNode {
     return std.ui.textStyle(std.ui.text(id, value), 22, 700, foregroundColor())
 }
 export func primaryButton(id: String, label: String): UiNode {
     let node: UiNode = std.ui.textStyle(std.ui.button(id, label), 16, 600, std.ui.color(255, 255, 255, 255))
     return std.ui.accessible(std.ui.surface(node, primaryColor(), std.ui.color(18, 82, 187, 255), 8), label, "button")
+}
+export func secondaryButton(id: String, label: String): UiNode {
+    let node: UiNode = std.ui.textStyle(std.ui.button(id, label), 16, 600, primaryColor())
+    return std.ui.accessible(std.ui.surface(node, std.ui.color(240, 245, 255, 255), borderColor(), 8), label, "button")
 }
 export func surfaceCard(id: String, content: UiNode[], fill: Int, border: Int, radius: Int): UiNode {
     let node: UiNode = card(id, content)

@@ -15,9 +15,25 @@ func Parse(tokens []lexer.Token) (*ast.Program, error) {
 	p := &parser{tokens: tokens}
 	program := &ast.Program{}
 	p.separators()
+	if p.at("identifier") && p.tok().Text == "module" {
+		p.take()
+		name, e := p.moduleName()
+		if e != nil {
+			return nil, e
+		}
+		program.Module = name
+		if !p.at("newline") && !p.at(";") && !p.at("eof") {
+			return nil, diagnostics.New(p.tok().Pos, "syntax error: module declaration must end at a statement boundary")
+		}
+		p.separators()
+	}
 	for !p.at("eof") {
 		if p.at("identifier") && p.tok().Text == "import" {
 			p.take()
+			kind := "package"
+			if p.at("identifier") && p.i+1 < len(p.tokens) && p.tokens[p.i+1].Kind == "identifier" && (p.tok().Text == "module" || p.tok().Text == "package") {
+				kind = p.take().Text
+			}
 			alias, e := p.need("identifier")
 			if e != nil {
 				return nil, e
@@ -26,7 +42,7 @@ func Parse(tokens []lexer.Token) (*ast.Program, error) {
 			if e != nil {
 				return nil, e
 			}
-			program.Imports = append(program.Imports, ast.Import{Alias: alias.Text, Dependency: dep.Text})
+			program.Imports = append(program.Imports, ast.Import{Kind: kind, Alias: alias.Text, Dependency: dep.Text})
 			p.separators()
 			continue
 		}
@@ -70,6 +86,21 @@ func Parse(tokens []lexer.Token) (*ast.Program, error) {
 		p.separators()
 	}
 	return program, nil
+}
+func (p *parser) moduleName() (string, error) {
+	first, e := p.need("identifier")
+	if e != nil {
+		return "", e
+	}
+	name := first.Text
+	for p.accept(".") {
+		part, e := p.need("identifier")
+		if e != nil {
+			return "", e
+		}
+		name += "." + part.Text
+	}
+	return name, nil
 }
 func (p *parser) tok() lexer.Token { return p.tokens[p.i] }
 func (p *parser) at(k string) bool { return p.tok().Kind == k }
@@ -131,6 +162,9 @@ func (p *parser) function() (*ast.Function, error) {
 			}
 			f.Params = append(f.Params, ast.Parameter{Name: n.Text, Type: typ, Pos: n.Pos})
 			if !p.accept(",") {
+				break
+			}
+			if p.at(")") {
 				break
 			}
 		}
@@ -230,6 +264,7 @@ func (p *parser) statement() (*ast.Stmt, error) {
 		saved := p.i
 		p.newlines()
 		if p.accept("else") {
+			p.newlines()
 			if p.at("if") {
 				s.Else, e = p.statement()
 			} else {
@@ -395,6 +430,9 @@ func (p *parser) expression(min int) (*ast.Expr, error) {
 			if !p.accept(",") {
 				break
 			}
+			if p.at("]") {
+				break
+			}
 		}
 		if _, e = p.need("]"); e != nil {
 			return nil, e
@@ -414,6 +452,11 @@ func (p *parser) expression(min int) (*ast.Expr, error) {
 		return nil, e
 	}
 	for {
+		// A member method followed by a call may put its opening parenthesis on
+		// the next line. Keep a blank line as a statement boundary.
+		if x.Kind == "member" && p.at("newline") && p.i+1 < len(p.tokens) && p.tokens[p.i+1].Kind == "(" {
+			p.take()
+		}
 		if p.accept(".") {
 			n, err := p.need("identifier")
 			if err != nil {
@@ -449,6 +492,9 @@ func (p *parser) expression(min int) (*ast.Expr, error) {
 					call.Args = append(call.Args, a)
 					call.ArgNames = append(call.ArgNames, name)
 					if !p.accept(",") {
+						break
+					}
+					if p.at(")") {
 						break
 					}
 				}
@@ -500,13 +546,19 @@ func (p *parser) typeName() (ast.Type, error) {
 	}
 	if t.Text == "Fn" && p.accept("<") {
 		var parts []ast.Type
+		p.newlines()
 		for {
 			v, e := p.typeName()
 			if e != nil {
 				return "", e
 			}
 			parts = append(parts, v)
+			p.newlines()
 			if !p.accept(",") {
+				break
+			}
+			p.newlines()
+			if p.at(">") || p.at(">=") {
 				break
 			}
 		}
@@ -520,6 +572,7 @@ func (p *parser) typeName() (ast.Type, error) {
 		typ = ast.FunctionType(parts[0], parts[1:])
 	}
 	if t.Text == "Map" && p.accept("<") {
+		p.newlines()
 		key, err := p.need("identifier")
 		if err != nil {
 			return "", err
@@ -534,6 +587,9 @@ func (p *parser) typeName() (ast.Type, error) {
 		if err != nil {
 			return "", err
 		}
+		p.newlines()
+		p.accept(",")
+		p.newlines()
 		// A closing generic followed immediately by assignment is lexed as >=.
 		if p.at(">=") {
 			p.tokens[p.i].Kind = "="

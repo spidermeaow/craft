@@ -47,7 +47,7 @@ func (c *checker) valid(t ast.Type, void bool) bool {
 	if t.IsMap() {
 		return c.valid(t.MapElement(), false)
 	}
-	return stdlib.IsDBType(t) || t.Primitive() || t == ast.Exception || t == ast.JsonValue || t == ast.DateTime || t == ast.Duration || t == ast.Random || t == ast.Task || t == ast.Timer || t == ast.Bytes || t == ast.Context || t == ast.UiWindow || t == ast.UiNode || t == ast.UiDraw || c.structs[string(t)] != nil || (void && t == ast.Void)
+	return stdlib.IsDBType(t) || t == "Process" || t.Primitive() || t == ast.Exception || t == ast.JsonValue || t == ast.DateTime || t == ast.Duration || t == ast.Random || t == ast.Task || t == ast.Timer || t == ast.Bytes || t == ast.Context || t == ast.UiWindow || t == ast.UiNode || t == ast.UiDraw || c.structs[string(t)] != nil || (void && t == ast.Void)
 }
 func Check(p *ast.Program) error { return CheckMode(p, true) }
 func CheckMode(p *ast.Program, requireMain bool) error {

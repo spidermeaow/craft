@@ -3,6 +3,7 @@
 package stdlib
 
 import (
+	"fmt"
 	"hash/fnv"
 	"runtime"
 	"sync"
@@ -44,6 +45,9 @@ type uiaProvider struct {
 	children     []*uiaProvider
 	live         bool
 	root         bool
+	gridCell     bool
+	gridRow      int64
+	gridColumn   int64
 }
 type uiaSimpleProvider struct{ vtbl *[7]uintptr }
 type uiaFragmentProvider struct{ vtbl *[9]uintptr }
@@ -269,9 +273,14 @@ func uiaProperty(this, property, out uintptr) uintptr {
 				v.value = 50000
 			case "Text":
 				v.value = 50020
+			case "VirtualGrid":
+				v.value = 50028 // DataGrid
 			default:
 				v.value = 50026
 			}
+		}
+		if p.gridCell {
+			v.value = 50029 // DataItem
 		}
 		if d != nil {
 			v.value = 50000
@@ -282,6 +291,15 @@ func uiaProperty(this, property, out uintptr) uintptr {
 			name = n.accessibleName
 			if name == "" {
 				name = n.text
+			}
+			if n.kind == "VirtualGrid" && name == "" {
+				name = fmt.Sprintf("Grid, %d rows, %d columns", n.itemCount, n.columnCount)
+			}
+			if p.gridCell {
+				name = fmt.Sprintf("Row %d, column %d", p.gridRow+1, p.gridColumn+1)
+				if n.text != "" {
+					name += ": " + n.text
+				}
 			}
 		}
 		if d != nil {
@@ -300,7 +318,7 @@ func uiaProperty(this, property, out uintptr) uintptr {
 		}
 		uiaSetVariantBool(v, enabled)
 	case 30009:
-		uiaSetVariantBool(v, p.actionable()) // IsKeyboardFocusable
+		uiaSetVariantBool(v, !p.root && p.w.focusCandidate(p.id) == nil) // IsKeyboardFocusable
 	case 30008:
 		uiaSetVariantBool(v, p.w.focused == p.id) // HasKeyboardFocus
 	case 30016, 30017:
@@ -458,7 +476,7 @@ func uiaEmbedded(this, out uintptr) uintptr {
 }
 func uiaSetFocus(this uintptr) uintptr {
 	p := uiaOf(this)
-	if p == nil || !p.valid() || !p.actionable() {
+	if p == nil || !p.valid() || p.root || p.w.focusCandidate(p.id) != nil {
 		return uiaUnavailable
 	}
 	p.addRef()
@@ -521,13 +539,14 @@ func (w *windowsState) rebuildUIA() {
 		if n == nil {
 			return
 		}
-		include := n.kind == "Button" || n.kind == "Text" || (n.accessibleName != "" && n.kind != "TextInput")
+		include := n.kind == "Button" || n.kind == "Text" || n.kind == "VirtualGrid" || (n.accessibleName != "" && n.kind != "TextInput")
 		if include {
 			p := old[n.id]
 			if p == nil {
 				p = newUIAProvider(w, n.id, false)
 			}
 			p.live = true
+			p.gridCell = false
 			p.parent = parent
 			p.children = nil
 			parent.children = append(parent.children, p)
@@ -547,8 +566,15 @@ func (w *windowsState) rebuildUIA() {
 				next[d.target] = p
 			}
 		}
-		for _, child := range n.children {
+		for index, child := range n.children {
 			walk(child, parent)
+			if n.kind == "VirtualGrid" && int64(index) < int64(gridCellCount(n)) && n.loadedColumns > 0 {
+				if cell := next[child.id]; cell != nil {
+					cell.gridCell = true
+					cell.gridRow = n.firstIndex + int64(index)/n.loadedColumns
+					cell.gridColumn = n.firstColumn + int64(index)%n.loadedColumns
+				}
+			}
 		}
 	}
 	walk(w.root, root)

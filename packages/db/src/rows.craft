@@ -1,0 +1,142 @@
+// Read already-materialized DbRows. The application owns connection and transaction lifetimes.
+export func one(rows: DbRows): DbValue[]? {
+    if rows.rows.length > 1 {
+        throw Exception("DbMultipleRows: expected at most one row")
+    }
+    if rows.rows.length == 0 {
+        return null
+    }
+    return rows.rows[0]
+}
+
+export func requireOne(rows: DbRows): DbValue[] {
+    if rows.rows.length == 0 {
+        throw Exception("DbNoRows: expected one row")
+    }
+    if rows.rows.length > 1 {
+        throw Exception("DbMultipleRows: expected one row")
+    }
+    return rows.rows[0]
+}
+
+export func columnIndex(rows: DbRows, name: String): Int {
+    var found: Int = -1
+    for index in 0..rows.columns.length {
+        if rows.columns[index] == name {
+            if found >= 0 {
+                throw Exception("DbDuplicateColumn: column label is ambiguous")
+            }
+            found = index
+        }
+    }
+    if found < 0 {
+        throw Exception("DbMissingColumn: column label was not returned")
+    }
+    return found
+}
+
+func valueAt(rows: DbRows, row: DbValue[], name: String): DbValue {
+    let index: Int = columnIndex(rows, name)
+    if index >= row.length {
+        throw Exception("DbRowShapeError: row is shorter than column metadata")
+    }
+    return row[index]
+}
+
+func required(rows: DbRows, row: DbValue[], name: String, kind: String): DbValue {
+    let value: DbValue = valueAt(rows, row, name)
+    if std.db.isNull(value) {
+        throw Exception("DbNullValue: required column is NULL")
+    }
+    if std.db.kind(value) != kind {
+        throw Exception("DbTypeMismatch: column has another type")
+    }
+    return value
+}
+
+export func requiredText(rows: DbRows, row: DbValue[], name: String): String {
+    return std.db.asText(required(rows, row, name, "text"))
+}
+
+export func requiredInt(rows: DbRows, row: DbValue[], name: String): Int {
+    return std.db.asInt(required(rows, row, name, "int"))
+}
+
+export func requiredDecimal(rows: DbRows, row: DbValue[], name: String): String {
+    return std.db.asDecimal(required(rows, row, name, "decimal"))
+}
+
+export func requiredBytes(rows: DbRows, row: DbValue[], name: String): Bytes {
+    return std.db.asBytes(required(rows, row, name, "bytes"))
+}
+
+export func requiredTime(rows: DbRows, row: DbValue[], name: String): DateTime {
+    return std.db.asTime(required(rows, row, name, "time"))
+}
+
+export func optionalText(rows: DbRows, row: DbValue[], name: String): String? {
+    let value: DbValue = valueAt(rows, row, name)
+    if std.db.isNull(value) {
+        return null
+    }
+    if std.db.kind(value) != "text" {
+        throw Exception("DbTypeMismatch: column has another type")
+    }
+    return std.db.asText(value)
+}
+
+export func optionalInt(rows: DbRows, row: DbValue[], name: String): Int? {
+    let value: DbValue = valueAt(rows, row, name)
+    if std.db.isNull(value) {
+        return null
+    }
+    if std.db.kind(value) != "int" {
+        throw Exception("DbTypeMismatch: column has another type")
+    }
+    return std.db.asInt(value)
+}
+
+export func optionalDecimal(rows: DbRows, row: DbValue[], name: String): String? {
+    let value: DbValue = valueAt(rows, row, name)
+    if std.db.isNull(value) {
+        return null
+    }
+    if std.db.kind(value) != "decimal" {
+        throw Exception("DbTypeMismatch: column has another type")
+    }
+    return std.db.asDecimal(value)
+}
+
+export func optionalBytes(rows: DbRows, row: DbValue[], name: String): Bytes? {
+    let value: DbValue = valueAt(rows, row, name)
+    if std.db.isNull(value) {
+        return null
+    }
+    if std.db.kind(value) != "bytes" {
+        throw Exception("DbTypeMismatch: column has another type")
+    }
+    return std.db.asBytes(value)
+}
+
+export func optionalTime(rows: DbRows, row: DbValue[], name: String): DateTime? {
+    let value: DbValue = valueAt(rows, row, name)
+    if std.db.isNull(value) {
+        return null
+    }
+    if std.db.kind(value) != "time" {
+        throw Exception("DbTypeMismatch: column has another type")
+    }
+    return std.db.asTime(value)
+}
+
+export func expectAffected(result: DbResult, expected: Int) {
+    if expected < 0 {
+        throw Exception("DbAffectedRows: expected count cannot be negative")
+    }
+    if let count = result.affectedRows {
+        if count == expected {
+            return
+        }
+    }
+    throw Exception("DbAffectedRows: affected count is unavailable or unexpected")
+}
