@@ -1,0 +1,8 @@
+name = "enterprise-ui-showcase"
+version = "0.1.0"
+edition = "2026"
+entry = "main"
+
+[dependencies]
+gui = { path = "../../packages/gui" }
+template = { path = "../../packages/gui-template", version = "0.1.50" }

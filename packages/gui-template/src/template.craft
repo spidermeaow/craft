@@ -1,0 +1,214 @@
+import gui "gui"
+
+func divider(id: String): UiNode {
+    return gui.canvas(id, 206, 1, [gui.fillRect(0, 0, 206, 1, dividerColor(), 0)])
+}
+
+func brandHeader(id: String, brand: String, caption: String): UiNode {
+    let icon: UiNode = gui.canvas(id + "-icon", 32, 32, [
+        gui.fillRect(0, 0, 32, 32, accent(), 8),
+        gui.drawLine(9, 16, 15, 22, gui.color(255, 255, 255, 255), 2),
+        gui.drawLine(15, 22, 24, 10, gui.color(255, 255, 255, 255), 2)
+    ])
+    let labels: UiNode = gui.spacing(gui.column(id + "-labels", [
+        gui.textStyle(gui.text(id + "-brand", brand), 16, 700, ink()),
+        gui.textStyle(gui.text(id + "-caption", caption), 11, 400, muted())
+    ]), 0, 3)
+    return gui.spacing(gui.row(id + "-header", [gui.size(icon, 32, 32, 32, 32, 0), labels]), 0, 12)
+}
+
+// Icons are drawn with native Canvas primitives; unknown names use no icon.
+func iconDraws(name: String, paint: Int): UiDraw[] {
+    var draws: UiDraw[] = []
+    if name == "layout-dashboard" {
+        draws.append(gui.strokeRect(14, 12, 7, 7, paint, 2, 2))
+        draws.append(gui.strokeRect(24, 12, 7, 7, paint, 2, 2))
+        draws.append(gui.strokeRect(14, 22, 7, 7, paint, 2, 2))
+        draws.append(gui.strokeRect(24, 22, 7, 7, paint, 2, 2))
+    }
+    if name == "package" {
+        draws.append(gui.strokeRect(15, 15, 16, 14, paint, 2, 2))
+        draws.append(gui.drawLine(15, 20, 31, 20, paint, 2))
+        draws.append(gui.drawLine(23, 15, 23, 20, paint, 2))
+    }
+    if name == "arrow-down-to-line" || name == "arrow-up-from-line" {
+        draws.append(gui.drawLine(15, 29, 31, 29, paint, 2))
+        draws.append(gui.drawLine(23, 13, 23, 24, paint, 2))
+        if name == "arrow-down-to-line" {
+            draws.append(gui.drawLine(18, 20, 23, 25, paint, 2))
+            draws.append(gui.drawLine(28, 20, 23, 25, paint, 2))
+        } else {
+            draws.append(gui.drawLine(18, 18, 23, 13, paint, 2))
+            draws.append(gui.drawLine(28, 18, 23, 13, paint, 2))
+        }
+    }
+    if name == "history" {
+        draws.append(gui.strokeRect(15, 13, 16, 16, paint, 2, 8))
+        draws.append(gui.drawLine(23, 16, 23, 21, paint, 2))
+        draws.append(gui.drawLine(23, 21, 27, 23, paint, 2))
+    }
+    return draws
+}
+
+export func navItemState(id: String, label: String, icon: String, selected: String, hovered: Bool): UiNode {
+    let active: Bool = id == selected
+    var paint: Int = ink()
+    if active { paint = accent() }
+    var draws: UiDraw[] = []
+    if active {
+        draws.append(gui.fillRect(0, 0, 192, 40, activeFill(), 8))
+    } else if hovered {
+        draws.append(gui.fillRect(0, 0, 192, 40, hoverFill(), 8))
+    }
+    let hasIcon: Bool = icon == "layout-dashboard" || icon == "package" || icon == "arrow-down-to-line" || icon == "arrow-up-from-line" || icon == "history"
+    var textX: Int = 12
+    var textWidth: Int = 168
+    if hasIcon {
+        for stroke in iconDraws(icon, paint) { draws.append(stroke) }
+        textX = 44
+        textWidth = 136
+    }
+    var weight: Int = 500
+    if active { weight = 600 }
+    draws.append(gui.drawTextStyled(label, textX, 6, textWidth, 28, paint, 14, weight, "start"))
+    draws.append(gui.targetPolicy(gui.hitRegion(id + "-target", 0, 0, 192, 40), true, true, label))
+    return gui.canvas(id, 192, 40, draws)
+}
+
+export func navItemIcon(id: String, label: String, icon: String, selected: String): UiNode {
+    return navItemState(id, label, icon, selected, false)
+}
+
+export func navItemCompact(id: String, label: String, icon: String, selected: String, hovered: Bool): UiNode {
+    var paint: Int = ink()
+    var draws: UiDraw[] = []
+    if id == selected {
+        paint = accent()
+        draws.append(gui.fillRect(0, 0, 40, 40, activeFill(), 8))
+    } else if hovered {
+        draws.append(gui.fillRect(0, 0, 40, 40, hoverFill(), 8))
+    }
+    // Move the standard 40px icon into this compact Canvas by drawing its
+    // strokes at the same coordinates; the hit region remains the full tile.
+    for stroke in iconDraws(icon, paint) { draws.append(stroke) }
+    draws.append(gui.targetPolicy(gui.hitRegion(id + "-target", 0, 0, 40, 40), true, true, label))
+    return gui.canvas(id, 40, 40, draws)
+}
+
+// Original API remains valid.
+export func navItem(id: String, label: String, selected: String): UiNode {
+    return navItemIcon(id, label, "", selected)
+}
+
+export func sectionLabel(id: String, label: String): UiNode {
+    return gui.textStyle(gui.text(id, label.upper()), 11, 600, muted())
+}
+
+export func navigationFooter(id: String, status: String, runtime: String): UiNode {
+    var lines: UiNode[] = [divider(id + "-footer-divider")]
+    if status != "" { lines.append(gui.textStyle(gui.text(id + "-status", status), 12, 600, successColor())) }
+    lines.append(gui.textStyle(gui.text(id + "-runtime", runtime), 11, 400, muted()))
+    return gui.spacing(gui.column(id + "-footer", lines), 0, 8)
+}
+
+export func navigationWithStatus(id: String, brand: String, caption: String, items: UiNode[], status: String, runtime: String): UiNode {
+    let header: UiNode = gui.spacing(gui.column(id + "-heading", [brandHeader(id, brand, caption), divider(id + "-header-divider")]), 0, 14)
+    let menu: UiNode = gui.size(gui.scrollView(id + "-nav-scroll", gui.spacing(gui.column(id + "-items", items), 0, 7)), 206, 0, 206, 0, 1)
+    let footer: UiNode = navigationFooter(id, status, runtime)
+    let layout: UiNode = gui.column(id + "-layout", [header, gui.size(menu, 0, 0, 0, 0, 1), footer])
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [layout]), 18, 0)
+    return gui.surface(panel, surfaceColor(), dividerColor(), 0)
+}
+
+export func navigationCompact(id: String, brand: String, items: UiNode[], connected: Bool): UiNode {
+    let brandMark: UiNode = gui.canvas(id + "-mark", 40, 40, [
+        gui.fillRect(4, 4, 32, 32, accent(), 8),
+        gui.drawLine(12, 20, 18, 26, surfaceColor(), 2),
+        gui.drawLine(18, 26, 27, 14, surfaceColor(), 2)
+    ])
+    let menu: UiNode = gui.size(gui.scrollView(id + "-nav-scroll", gui.spacing(gui.column(id + "-items", items), 0, 7)), 40, 0, 40, 0, 1)
+    var statusPaint: Int = muted()
+    if connected { statusPaint = successColor() }
+    let footer: UiNode = gui.canvas(id + "-status", 40, 20, [gui.fillRect(16, 5, 10, 10, statusPaint, 5)])
+    let stack: UiNode = gui.spacing(gui.column(id + "-layout", [brandMark, menu, footer]), 0, 14)
+    return gui.surface(gui.spacing(gui.panel(id + "-panel", [stack]), 16, 0), surfaceColor(), dividerColor(), 0)
+}
+
+export func navigation(id: String, brand: String, caption: String, items: UiNode[], footer: String): UiNode {
+    return navigationWithStatus(id, brand, caption, items, "", footer)
+}
+
+export func topBar(id: String, title: String, actions: UiNode[]): UiNode {
+    return appHeader(id, title, "", actions)
+}
+
+export func pageHeader(id: String, category: String, title: String, description: String): UiNode {
+    var children: UiNode[] = []
+    children.append(gui.textStyle(gui.text(id + "-category", category), 12, 700, accent()))
+    children.append(gui.textWrap(gui.textStyle(gui.text(id + "-title", title), pageTitleSize(), 700, ink())))
+    children.append(gui.textWrap(gui.textStyle(gui.text(id + "-description", description), 14, 400, muted())))
+    return gui.spacing(gui.column(id, children), 0, 10)
+}
+
+export func card(id: String, label: String, title: String, detail: String): UiNode {
+    var items: UiNode[] = []
+    items.append(gui.textStyle(gui.text(id + "-label", label), 12, 700, accent()))
+    items.append(gui.textStyle(gui.text(id + "-title", title), 20, 700, ink()))
+    items.append(gui.textWrap(gui.textStyle(gui.text(id + "-detail", detail), 14, 400, muted())))
+    let stack: UiNode = gui.spacing(gui.column(id + "-stack", items), 0, 10)
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [stack]), 22, 0)
+    return gui.surface(panel, surfaceColor(), dividerColor(), cardRadius())
+}
+
+export func section(id: String, kicker: String, title: String, description: String, content: UiNode[]): UiNode {
+    var items: UiNode[] = []
+    items.append(gui.textStyle(gui.text(id + "-kicker", kicker), 12, 700, gui.primaryColor()))
+    items.append(gui.textStyle(gui.text(id + "-title", title), 21, 700, ink()))
+    items.append(gui.textWrap(gui.textStyle(gui.text(id + "-description", description), 14, 400, muted())))
+    for child in content { items.append(child) }
+    let stack: UiNode = gui.spacing(gui.column(id + "-stack", items), 0, 16)
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [stack]), 26, 0)
+    return gui.surface(panel, surfaceColor(), dividerColor(), 14)
+}
+
+export func shell(id: String, sidebar: UiNode, topbar: UiNode, content: UiNode, width: Int): UiNode {
+    let scroll: UiNode = gui.scrollView(id + "-scroll", gui.spacing(content, pagePadding(width), 18))
+    let panel: UiNode = gui.panel(id + "-content-panel", [scroll])
+    let surface: UiNode = gui.surface(panel, backgroundColor(), backgroundColor(), 0)
+    let main: UiNode = gui.column(id + "-main", [gui.size(topbar, 0, 68, 0, 68, 0), gui.size(surface, 0, 0, 0, 0, 1)])
+    if gui.compact(width, 760) {
+        return gui.column(id, [sidebar, gui.size(main, 0, 0, 0, 300, 1)])
+    }
+    return gui.row(id, [gui.size(sidebar, 250, 0, 250, 0, 0), gui.size(main, 0, 0, 0, 0, 1)])
+}
+
+// User preference is "auto", "expanded", or "collapsed". The caller retains it.
+export func shellAdaptive(id: String, sidebar: UiNode, compactSidebar: UiNode, topbar: UiNode, content: UiNode, width: Int, preference: String, narrowOpen: Bool): UiNode {
+    let scroll: UiNode = gui.scrollView(id + "-scroll", gui.spacing(content, pagePadding(width), 18))
+    let panel: UiNode = gui.panel(id + "-content-panel", [scroll])
+    let surface: UiNode = gui.surface(panel, backgroundColor(), backgroundColor(), 0)
+    let main: UiNode = gui.column(id + "-main", [gui.size(topbar, 0, 68, 0, 68, 0), gui.size(surface, 0, 0, 0, 0, 1)])
+    if width < 650 {
+        if narrowOpen {
+            return gui.column(id, [gui.size(sidebar, 250, 260, 250, 260, 0), gui.size(main, 0, 0, 0, 200, 1)])
+        }
+        return gui.column(id, [gui.size(main, 0, 0, 0, 200, 1)])
+    }
+    var collapsed: Bool = width < 900
+    if preference == "expanded" { collapsed = false }
+    if preference == "collapsed" { collapsed = true }
+    if collapsed {
+        return gui.row(id, [gui.size(compactSidebar, 72, 0, 72, 0, 0), gui.size(main, 0, 0, 0, 0, 1)])
+    }
+    return gui.row(id, [gui.size(sidebar, 250, 0, 250, 0, 0), gui.size(main, 0, 0, 0, 0, 1)])
+}
+
+export func estimatedContentWidth(width: Int, preference: String): Int {
+    var sidebarWidth: Int = 250
+    if width < 650 { sidebarWidth = 0 }
+    else if width < 900 || preference == "collapsed" { sidebarWidth = 72 }
+    if preference == "expanded" && width >= 650 { sidebarWidth = 250 }
+    let available: Int = width - sidebarWidth - 2 * pagePadding(width)
+    if available < 1 { return 1 }
+    return available
+}

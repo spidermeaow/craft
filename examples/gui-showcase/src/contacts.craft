@@ -1,0 +1,33 @@
+import gui "gui"
+func saveButton(): UiNode {
+    return gui.size(gui.primaryButton("save-contact", "Save contact"), 184, 46, 184, 46, 0)
+}
+
+func contactForm(name: String, email: String, company: String, note: String, status: String): UiNode {
+    let ink: Int = gui.color(33, 47, 68, 255)
+    let muted: Int = gui.color(100, 114, 134, 255)
+    var fields: UiNode[] = []
+    fields.append(gui.textStyle(gui.text("form-heading", "New contact"), 22, 700, ink))
+    fields.append
+    (
+        gui.textWrap
+        (
+        gui.textStyle
+        (
+        gui.text
+        (
+        "form-help",
+        "Add a person to your local contact list. Fields are saved when you press the button below."
+    ), 14, 400, muted,)
+    )
+    )
+    fields.append(gui.field("contact-name", "Full name", name, "e.g. Alex Morgan"))
+    fields.append(gui.field("contact-email", "Email address", email, "e.g. alex@example.com"))
+    fields.append(gui.field("contact-company", "Company", company, "e.g. Northstar Studio"))
+    fields.append(gui.field("contact-note", "Note", note, "A short reminder about this contact"))
+    fields.append(saveButton())
+    fields.append(gui.textWrap(gui.textStyle(gui.text("save-status", status), 13, 500, gui.color(26, 125, 94, 255))))
+    let stack: UiNode = gui.spacing(gui.column("contact-fields", fields), 0, 16)
+    let panel: UiNode = gui.spacing(gui.panel("contact-form-panel", [stack]), 28, 0)
+    return gui.surface(panel, gui.color(255, 255, 255, 255), gui.color(229, 234, 242, 255), 14)
+}

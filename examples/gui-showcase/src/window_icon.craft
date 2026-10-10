@@ -1,0 +1,23 @@
+import gui "gui"
+func windowIconPage(status: String): UiNode[] {
+    var items: UiNode[] = []
+    items.append(showcaseCard("window-icon-guide", "REV 0.1.40 / WINDOW ICON",
+        "Title bar, Alt+Tab, and Taskbar",
+        ("The blue icon is applied when the window opens. Use the buttons below to replace it. " +
+        "Compare the title bar, " +
+        "Alt+Tab switcher, and Taskbar. The missing-file action should report an error while " +
+        "keeping the previous icon.")))
+    var actions: UiNode[] = []
+    actions.append(gui.size(gui.primaryButton("icon-blue", "Blue icon"), 164, 44, 164, 44, 0))
+    actions.append(gui.size(gui.secondaryButton("icon-orange", "Orange icon"), 164, 44, 164, 44, 0))
+    actions.append(gui.size(gui.secondaryButton("icon-missing", "Missing file"), 164, 44, 164, 44, 0))
+    items.append(componentPanel("window-icon-actions", "01 / INTERACTION", "Change the window icon",
+        ("Launch Craft from this project directory so assets/*.ico resolves correctly. " +
+        "Switching repeatedly also exercises native icon cleanup."),
+        [gui.spacing(gui.row("window-icon-buttons", actions), 0, 12),
+        gui.textWrap(gui.textStyle(gui.text("window-icon-status", status), 14, 600, gui.primaryColor()))]))
+    items.append(showcaseCard("window-icon-limits", "02 / SCOPE", "Window icon only",
+        ("This API changes the running window. It does not embed an icon in craft.exe, a " +
+        "shortcut, or an installer. API and CLI programs do not need the GUI package.")))
+    return items
+}

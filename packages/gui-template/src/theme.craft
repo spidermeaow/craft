@@ -1,0 +1,38 @@
+import gui "gui"
+
+// Enterprise Light tokens use logical pixels and opaque native UI colors.
+export func backgroundColor(): Int { return gui.color(246, 248, 252, 255) }
+export func surfaceColor(): Int { return gui.color(255, 255, 255, 255) }
+export func ink(): Int { return gui.color(23, 43, 77, 255) }
+export func muted(): Int { return gui.color(100, 116, 139, 255) }
+export func accent(): Int { return gui.color(36, 91, 231, 255) }
+export func activeFill(): Int { return gui.color(232, 240, 255, 255) }
+export func hoverFill(): Int { return gui.color(241, 245, 249, 255) }
+export func dividerColor(): Int { return gui.color(229, 234, 242, 255) }
+export func secondaryButtonBorder(): Int { return gui.color(216, 225, 239, 255) }
+export func successColor(): Int { return gui.color(22, 132, 91, 255) }
+export func warningColor(): Int { return gui.color(183, 107, 24, 255) }
+export func dangerColor(): Int { return gui.color(220, 53, 69, 255) }
+export func bodySize(): Int { return 14 }
+export func captionSize(): Int { return 11 }
+export func headingSize(): Int { return 22 }
+export func smallGap(): Int { return 8 }
+export func mediumGap(): Int { return 12 }
+export func sectionGap(): Int { return 18 }
+export func controlRadius(): Int { return 8 }
+export func cardRadius(): Int { return 12 }
+export func pageTitleSize(): Int { return 32 }
+export func metricSize(): Int { return 30 }
+export func pagePadding(width: Int): Int {
+    if width < 650 { return 14 }
+    if width < 900 { return 20 }
+    return 28
+}
+
+// Breakpoints use the logical viewport width supplied by std.ui.
+export func layoutMode(width: Int): String {
+    if width < 650 { return "narrow" }
+    if width < 900 { return "compact" }
+    if width < 1200 { return "standard" }
+    return "expanded"
+}

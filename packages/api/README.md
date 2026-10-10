@@ -1,4 +1,4 @@
-# Craft API package 0.1.45 candidate
+# Craft API package 0.1.50
 
 `api` is a first-party Craft library for routing, middleware, JSON/text responses, query helpers, and basic validation on the existing `std.http` server. It is written in `.craft`; the HTTP listener, limits, cancellation, and shutdown remain in the Runtime. It does not include an HTTP client or database layer.
 

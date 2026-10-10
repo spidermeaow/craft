@@ -1,0 +1,136 @@
+import gui "gui"
+func excelRow(row: Int): String[] {
+    if row == 1 {
+        return ["Product", "Region", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Total", "Status"]
+    }
+    if row == 2 {
+        return ["Notebook", "North", "120", "138", "142", "155", "161", "174", "890", "Active"]
+    }
+    if row == 3 {
+        return ["Desk lamp", "West", "84", "91", "88", "97", "105", "112", "577", "Active"]
+    }
+    if row == 4 {
+        return ["Travel mug", "East", "65", "72", "78", "81", "86", "94", "476", "Review"]
+    }
+    if row == 5 {
+        return ["Planner", "South", "103", "110", "118", "122", "130", "137", "720", "Active"]
+    }
+    if row == 6 {
+        return ["Pen set", "North", "58", "63", "70", "68", "74", "79", "412", "Active"]
+    }
+    if row == 7 {
+        return ["Canvas bag", "West", "47", "52", "55", "62", "67", "71", "354", "Review"]
+    }
+    if row == 8 {
+        return ["Wall clock", "East", "31", "35", "42", "46", "49", "54", "257", "Planned"]
+    }
+    if row == 9 {
+        return ["Desk mat", "South", "76", "82", "89", "93", "99", "108", "547", "Active"]
+    }
+    return ["", "", "", "", "", "", "", "", "", ""]
+}
+
+func excelCellId(row: Int, col: Int): String {
+    return "excel-cell-" + std.convert.toString(row) + "-" + std.convert.toString(col)
+}
+
+func excelShiftHeld(modifiers: Int): Bool {
+    return modifiers == 1 || modifiers == 3 || modifiers == 5 || modifiers == 7
+}
+
+func excelEnabled(selected: String): Bool {
+    return selected == "excel" || selected == "engine-lab"
+}
+
+func excelCopyRange(cells: String[], anchorRow: Int, anchorCol: Int, focusRow: Int, focusCol: Int): String {
+    var firstRow: Int = anchorRow
+    var lastRow: Int = focusRow
+    var firstCol: Int = anchorCol
+    var lastCol: Int = focusCol
+    if firstRow > lastRow {
+        firstRow = focusRow
+        lastRow = anchorRow
+    }
+    if firstCol > lastCol {
+        firstCol = focusCol
+        lastCol = anchorCol
+    }
+    let endRow: Int = lastRow + 1
+    let endCol: Int = lastCol + 1
+    var result: String = ""
+    for row in firstRow..endRow {
+        if row > firstRow {
+            result = result + "\r\n"
+        }
+        for col in firstCol..endCol {
+            if col > firstCol {
+                result = result + "\t"
+            }
+            result = result + cells[(row - 1) * 10 + col]
+        }
+    }
+    return result
+}
+
+func excelHeaderCell(id: String, value: String, width: Int, fill: Int, ink: Int): UiNode {
+    let label: UiNode = gui.textStyle(gui.text(id + "-label", value), 13, 700, ink)
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [label]), 9, 0)
+    return gui.size(gui.surface(panel, fill, gui.color(217, 224, 229, 255), 0), width, 34, width, 34, 0)
+}
+
+func editableExcelSheet(activeRow: Int, activeCol: Int, anchorRow: Int, anchorCol: Int, cells: String[],
+    draft: String, status: String): UiNode[] {
+    let letters: String[] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+    let dark: Int = gui.color(39, 52, 65, 255)
+    let grid: Int = gui.color(217, 224, 229, 255)
+    let header: Int = gui.color(242, 245, 247, 255)
+    let green: Int = gui.color(24, 128, 80, 255)
+    let white: Int = gui.color(255, 255, 255, 255)
+    let address: String = letters[activeCol] + std.convert.toString(activeRow)
+    var parts: UiNode[] = []
+    parts.append(gui.textStyle(gui.text("excel-kicker", "REV 0.1.37  /  VIRTUALGRID RANGE SELECTION"), 12, 700, green))
+    parts.append(gui.textWrap(gui.textStyle(gui.text("excel-edit-help",
+        ("Click to edit a cell; Shift+click, Shift+Arrow, or drag to select a range. Copy and " +
+        "Paste transfer tab-separated values. Enter confirms an edit, Escape cancels it.")),
+        13, 400, gui.color(92, 106, 126, 255))))
+    var formula: UiNode[] = []
+    formula.append(gui.size(gui.surface(gui.spacing(gui.panel("excel-name-panel",
+        [gui.textStyle(gui.text("excel-name", address), 14, 700, green)]), 10, 0), white, grid, 4), 86, 38, 86,
+        38, 0))
+    let editor: UiNode = gui.inputStyle(gui.textInput("excel-value-input", draft, "Enter a value"), white, grid, 4)
+    formula.append(gui.size(gui.accessible(editor, "Value for " + address, "textbox"), 410, 38, 410, 38, 0))
+    formula.append(gui.size(gui.button("excel-apply", "Apply"), 82, 38, 82, 38, 0))
+    formula.append(gui.size(gui.button("excel-copy", "Copy"), 82, 38, 82, 38, 0))
+    formula.append(gui.size(gui.button("excel-paste", "Paste"), 82, 38, 82, 38, 0))
+    parts.append(gui.spacing(gui.row("excel-formula-bar", formula), 0, 8))
+    parts.append(gui.textStyle(gui.text("excel-edit-status", status), 13, 500, green))
+    var tableRows: UiNode[] = []
+    var headings: UiNode[] = []
+    headings.append(excelHeaderCell("excel-corner", "#", 48, header, dark))
+    for col in 0..10 {
+        headings.append(excelHeaderCell("excel-head-" + std.convert.toString(col), letters[col], 110, header, dark))
+    }
+    tableRows.append(gui.spacing(gui.row("excel-header-row", headings), 0, 0))
+    var gridCells: UiNode[] = []
+    var rowHeaders: UiNode[] = []
+    for row in 1..19 {
+        rowHeaders.append(excelHeaderCell("excel-row-head-" + std.convert.toString(row),
+            std.convert.toString(row), 48, header, dark))
+        for col in 0..10 {
+            let value: String = cells[(row - 1) * 10 + col]
+            gridCells.append(gui.textStyle(gui.text(excelCellId(row, col), value), 15, 400, dark))
+        }
+    }
+    let gridNode: UiNode = gui.virtualGrid("excel-grid", 18, 10, 34, 110, 0, 0, 10, gridCells)
+    let selectedGrid: UiNode = gui.gridRangeStyle(gui.gridRangeSelection(gridNode, anchorRow - 1, anchorCol,
+        activeRow - 1, activeCol), gui.color(232, 240, 255, 255), gui.color(38, 92, 204, 255))
+    let activeInput: UiNode = gui.inputStyle(gui.textInput("excel-active-editor", cells[(activeRow - 1) * 10 +
+        activeCol], ""), gui.color(232, 246, 237, 255), green, 0)
+    let labels: UiNode = gui.spacing(gui.column("excel-row-labels", rowHeaders), 0, 0)
+    let dataGrid: UiNode = gui.size(gui.gridEditor(selectedGrid, activeRow - 1, activeCol,
+        gui.accessible(activeInput, "Cell " + address, "textbox")), 1100, 612, 1100, 612, 0)
+    tableRows.append(gui.spacing(gui.row("excel-data", [labels, dataGrid]), 0, 0))
+    parts.append(gui.spacing(gui.column("excel-editable-sheet", tableRows), 0, 2))
+    parts.append(gui.textStyle(gui.text("excel-tab", "Sheet1   •   Click a cell to edit it directly"), 13, 600, green))
+    return parts
+}

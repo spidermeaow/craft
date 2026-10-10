@@ -1,8 +1,8 @@
-# Craft GUI package 0.1.45 candidate
+# Craft GUI package 0.1.50
 
-`gui` เป็น Craft library สำหรับประกอบ native UI บน `std.ui` ของ Craft Runtime **0.1.45** บน Windows. แอปเขียนด้วย Craft โดยไม่ใช้ WebView หรือ Go ในโค้ดแอป. Runtime จัดการหน้าต่าง, layout, event และการวาด; package ให้ API ที่เรียกง่ายและองค์ประกอบใช้ซ้ำ.
+`gui` เป็น Craft library สำหรับประกอบ native UI บน `std.ui` ของ Craft Runtime **0.1.50** บน Windows. แอปเขียนด้วย Craft โดยไม่ใช้ WebView หรือ Go ในโค้ดแอป. Runtime จัดการหน้าต่าง, layout, event และการวาด; package ให้ API ที่เรียกง่ายและองค์ประกอบใช้ซ้ำ.
 
-GUI ที่มากับ Craft ใช้เวอร์ชันเดียวกับ CLI/Runtime คือ `0.1.45`. Rev.32 แก้การจัดข้อความของ Styled Button และ Canvas ใน Runtime โดยไม่เปลี่ยน API ของ package. ดู [แผน Rev.32](../../roadmap/phase1/craft-phase1-rev32.md) และ [โครงสร้างของโครงการ](../../docs/PROJECT-STRUCTURE.md).
+GUI ที่มากับ Craft ใช้เวอร์ชันเดียวกับ CLI/Runtime คือ `0.1.50`. Rev.32 แก้การจัดข้อความของ Styled Button และ Canvas ใน Runtime โดยไม่เปลี่ยน API ของ package. ดู [แผน Rev.32](../../roadmap/phase1/craft-phase1-rev32.md) และ [โครงสร้างของโครงการ](../../docs/PROJECT-STRUCTURE.md).
 
 Rev.33 เพิ่ม `gui.virtualGrid` สำหรับ viewport ตารางสองแกนแบบ prototype. ดู [รูปแบบข้อมูลและข้อจำกัด](../../docs/REV33-UI-VIRTUAL-GRID.md); ตารางนี้ยังไม่มี editor, selection หลายช่อง หรือ virtual accessibility.
 
@@ -28,6 +28,8 @@ gui = { path = "packages/gui" }
 ```
 
 Craft เติมเวอร์ชัน GUI จาก toolchain ให้อัตโนมัติและตรวจว่า package ที่ path นั้นตรงกัน. รัน `craft package lock` ในโปรเจกต์ แล้วใช้ `import gui "gui"`. ตัวอย่าง `examples/gui-package-lab` อ้าง `../../packages/gui` โดยตรง. ยังไม่มีคำสั่ง `craft gui init`.
+
+ถ้าต้องการ Sidebar, TopBar, cards และ sections ที่ออกแบบไว้แล้ว ให้ใช้ [`packages/gui-template`](../gui-template/README.md) ใน Craft 0.1.50. ผู้ที่ต้องการออกแบบเองยังใช้ package นี้โดยตรงได้ตามเดิม.
 
 ## API ที่เปิดใช้
 

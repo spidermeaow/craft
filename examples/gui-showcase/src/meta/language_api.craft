@@ -1,0 +1,17 @@
+module showcase.language
+export func sampleTotal(): Int {
+    let values: Int[] = [
+        12,
+        18,
+        30,
+    ]
+    return add(
+        add(values[0], values[1]),
+        values[2],
+    )
+}
+
+export func sampleMatches(): Bool {
+    return sampleTotal() == 60 &&
+    add(4, 5) == 9
+}

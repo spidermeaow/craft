@@ -1,0 +1,4 @@
+module showcase.labels
+export func versionLabel(): String {
+    return "Craft GUI 0.1.50  /  showcase"
+}

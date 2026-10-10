@@ -1,0 +1,106 @@
+import gui "gui"
+func navButton(id: String, label: String, selected: String): UiNode {
+    let active: Bool = id == selected
+    let ink: Int = gui.color(52, 65, 85, 255)
+    let blue: Int = gui.color(38, 92, 204, 255)
+    var draws: UiDraw[] = []
+    if active {
+        draws.append(gui.fillRect(0, 0, 206, 36, gui.color(233, 241, 255, 255), 10))
+        draws.append(gui.fillRect(0, 8, 4, 20, blue, 2))
+        draws.append(gui.drawTextStyled(label, 18, 5, 174, 26, blue, 14, 700, "start"))
+    }
+    else {
+        draws.append(gui.drawTextStyled(label, 18, 5, 174, 26, ink, 14, 500, "start"))
+    }
+    return gui.canvas(id, 206, 36, draws)
+}
+
+func pageTitle(selected: String): String {
+    if selected == "projects" {
+        return "Tables"
+    }
+    if selected == "excel" {
+        return "Editable grid"
+    }
+    if selected == "engine-lab" {
+        return "Virtual grid"
+    }
+    if selected == "rendering" {
+        return "Canvas & paths"
+    }
+    if selected == "window-icon" {
+        return "Window & icon"
+    }
+    if selected == "language-lab" {
+        return "Rev 41 Language"
+    }
+    if selected == "contacts" {
+        return "Form example"
+    }
+    if selected == "media" {
+        return "Images & captions"
+    }
+    if selected == "components" {
+        return "Controls"
+    }
+    if selected == "theme-forms" {
+        return "Themes & forms"
+    }
+    if selected == "layouts" {
+        return "Layout & scrolling"
+    }
+    return "Engine overview"
+}
+
+func pageCategory(selected: String): String {
+    if selected == "components" || selected == "theme-forms" || selected == "layouts" {
+        return "CONTROLS & LAYOUT"
+    }
+    if selected == "projects" || selected == "excel" || selected == "engine-lab" {
+        return "DATA & TABLES"
+    }
+    if selected == "rendering" || selected == "media" {
+        return "DRAWING & MEDIA"
+    }
+    if selected == "contacts" || selected == "window-icon" {
+        return "APP INTEGRATION"
+    }
+    return "START HERE"
+}
+
+func pageSubtitle(selected: String): String {
+    if selected == "projects" {
+        return "Read two table layouts built from public GUI components and mock data."
+    }
+    if selected == "excel" {
+        return "Edit cells, select ranges and use the clipboard in a spreadsheet-style demo."
+    }
+    if selected == "engine-lab" {
+        return "Inspect range selection, accessibility and a 100,000-row viewport."
+    }
+    if selected == "rendering" {
+        return "Draw paths and compare partial repainting across renderer backends."
+    }
+    if selected == "window-icon" {
+        return "Set a Windows title-bar and taskbar icon through the GUI package."
+    }
+    if selected == "language-lab" {
+        return "Project modules, multiline expressions, and trailing commas in Craft 0.1.41."
+    }
+    if selected == "contacts" {
+        return "Use native text inputs and a button in a small data-entry flow."
+    }
+    if selected == "media" {
+        return "Display local images at several sizes with text and captions."
+    }
+    if selected == "components" {
+        return "Compare text, buttons, inputs, surfaces, focus and disabled states."
+    }
+    if selected == "theme-forms" {
+        return "Compare light and dark themes, field sizing and validation feedback."
+    }
+    if selected == "layouts" {
+        return "Resize responsive layouts and scroll a large two-axis grid."
+    }
+    return "A categorized map of the public Craft UI capabilities available today."
+}

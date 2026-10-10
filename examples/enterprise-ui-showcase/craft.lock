@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "root": "enterprise-ui-showcase@0.1.0",
+  "dependencies": {
+    "gui": "gui@0.1.50",
+    "template": "gui-template@0.1.50"
+  },
+  "packages": [
+    {
+      "id": "gui-template@0.1.50",
+      "source": "../../packages/gui-template",
+      "checksum": "d2b44dfc4df3e52c4a8afae46d35c8770d6e1391023e40e680178fcf5817161a"
+    },
+    {
+      "id": "gui@0.1.50",
+      "source": "../../packages/gui",
+      "checksum": "0d7aca7f3823be252cdb991c4feb4404a60ad0c31a8b07098bb06fe2b264e2e6"
+    }
+  ]
+}

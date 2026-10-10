@@ -1,0 +1,57 @@
+import gui "gui"
+func virtualGridSample(firstRow: Int, endRow: Int, firstColumn: Int, endColumn: Int, selectedRow: Int,
+    selectedColumn: Int): UiNode {
+    var cells: UiNode[] = []
+    for row in firstRow..endRow {
+        for column in firstColumn..endColumn {
+            let id: String = "virtual-cell-" + std.convert.toString(row) + "-" + std.convert.toString(column)
+            let label: String = "Row " + std.convert.toString(row + 1) + " / Col " + std.convert.toString(column + 1)
+            cells.append(gui.textStyle(gui.text(id, label), 13, 400, gui.color(52, 65, 85, 255)))
+        }
+    }
+    let grid: UiNode = gui.virtualGrid("showcase-virtual-grid", 100000, 1000, 34, 150, firstRow, firstColumn,
+        endColumn - firstColumn, cells)
+    if selectedRow >= 0 && selectedColumn >= 0 {
+        return gui.size(gui.gridSelection(grid, selectedRow, selectedColumn), 0, 330, 0, 330, 0)
+    }
+    return gui.size(grid, 0, 330, 0, 330, 0)
+}
+
+func layoutsPage(firstRow: Int, endRow: Int, firstColumn: Int, endColumn: Int, gridStatus: String,
+    selectedRow: Int, selectedColumn: Int): UiNode[] {
+    var sections: UiNode[] = []
+    sections.append(showcaseCard("layout-intro", "01 / COMPOSITION", "Let the content set the rhythm",
+        ("Rows, columns, padding, and scroll views form the foundation of this app. The grid " +
+        "below is given the width available from its parent and chooses a column count within " +
+        "its limits.")))
+    var tiles: UiNode[] = []
+    tiles.append(showcaseCard("layout-tile-one", "01", "Start", "Begin with a focused idea."))
+    tiles.append(showcaseCard("layout-tile-two", "02", "Shape", "Give related parts a clear place."))
+    tiles.append(showcaseCard("layout-tile-three", "03", "Review", "Compare the result with its purpose."))
+    tiles.append(showcaseCard("layout-tile-four", "04", "Refine", "Remove noise and improve the flow."))
+    tiles.append(showcaseCard("layout-tile-five", "05", "Share", "Make the work easy to understand."))
+    tiles.append(showcaseCard("layout-tile-six", "06", "Learn", "Carry useful lessons forward."))
+    sections.append(gui.autoGrid("layout-grid", tiles, 170, 3, 14))
+    sections.append(showcaseCard("layout-note", "02 / ADAPTATION", "A flexible grid",
+        ("Resize the window to see the grid respond to the width it receives. Fixed-size " +
+        "Canvas images on the Media page follow a different rule and can require scrolling on " +
+        "narrow windows.")))
+    sections.append(showcaseCard("virtual-grid-intro", "03 / VIRTUAL GRID", "A large logical table",
+        "This grid represents 100,000 rows and 1,000 columns. Only visible mock cells are supplied to the UI Engine."))
+    sections.append(showcaseCard("virtual-grid-test", "04 / INTERACTION CHECK", "Test the selected cell",
+        ("1. Click a cell: the blue outline and selected coordinates should match.  2. Use " +
+        "Arrow and Page Up/Down: the outline and viewport should follow.  3. Press Ctrl+End " +
+        "for row 100,000 / column 1,000, then Ctrl+Home for row 1 / column 1.  4. Press Tab " +
+        "to leave the grid, then click it again.")))
+    sections.append(gui.textWrap(gui.textStyle(gui.text("virtual-grid-status", gridStatus), 14, 600,
+        gui.primaryColor())))
+    let rangeStatus: String = "Visible snapshot: rows " + std.convert.toString(firstRow + 1) + "-" +
+    std.convert.toString(endRow) + ", columns " + std.convert.toString(firstColumn + 1) + "-" +
+    std.convert.toString(endColumn) + " (" +
+    std.convert.toString((endRow - firstRow) * (endColumn - firstColumn)) +
+    " supplied cells including overscan)."
+    sections.append(gui.textWrap(gui.textStyle(gui.text("virtual-grid-range", rangeStatus), 12, 400,
+        gui.color(106, 121, 142, 255))))
+    sections.append(virtualGridSample(firstRow, endRow, firstColumn, endColumn, selectedRow, selectedColumn))
+    return sections
+}

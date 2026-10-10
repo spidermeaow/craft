@@ -1,0 +1,37 @@
+import gui "gui"
+
+func articleSections(): UiNode[] {
+    var sections: UiNode[] = []
+    sections.append(showcaseCard("overview-status", "CRAFT 0.1.50 / UI SHOWCASE",
+        "A map of the UI Engine",
+        ("Every page in the sidebar demonstrates a public gui API or a small app built with it. " +
+        "Choose a category, interact with the examples, and compare what the engine renders. " +
+        "The UI Engine has not passed its Final acceptance gate.")))
+    sections.append(showcaseCard("overview-controls", "01 / CONTROLS & LAYOUT",
+        "Build the structure of a desktop screen",
+        ("Controls compares Text, Button, TextInput, disabled and focus states. Themes & forms " +
+        "shows package helpers and validation feedback. Layout & scrolling demonstrates row, " +
+        "column, panel, responsive grid, scroll view and a large virtual viewport.")))
+    sections.append(showcaseCard("overview-data", "02 / DATA & TABLES",
+        "Present records and edit cells",
+        ("Tables compares a matrix with a 20-record register. Editable grid demonstrates " +
+        "selection, direct cell editing and clipboard text. Virtual grid isolates the UI " +
+        "primitive with 100,000 logical rows and documents its current limits.")))
+    sections.append(showcaseCard("overview-drawing", "03 / DRAWING & MEDIA",
+        "Draw shapes and display images",
+        ("Canvas & paths shows geometry, curves, hit regions and partial repainting. " +
+        "Images & captions displays local assets in multiple sizes. Renderer behavior can " +
+        "be compared between Direct2D and GDI.")))
+    sections.append(showcaseCard("overview-integration", "04 / APP INTEGRATION",
+        "Put the primitives to work",
+        ("Form example combines labeled inputs, events and a save action. Window & icon " +
+        "demonstrates a native Windows icon. The application owns its data and actions; " +
+        "the gui package supplies UI components and runtime access.")))
+    sections.append(showcaseCard("overview-limits", "ACCEPTANCE STATUS",
+        "What remains open",
+        ("This showcase is a feature gallery, not proof of Final acceptance. Variable grid " +
+        "row and column sizes, complete virtual accessibility, and the full DPI, IME, " +
+        "keyboard and GDI acceptance matrix still need evidence. XLSX, formulas and " +
+        "printing belong to the separate Craft Sheet application and its libraries.")))
+    return sections
+}

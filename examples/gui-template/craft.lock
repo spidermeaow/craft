@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "root": "gui-template-example@0.1.0",
+  "dependencies": {
+    "gui": "gui@0.1.50",
+    "template": "gui-template@0.1.50"
+  },
+  "packages": [
+    {
+      "id": "gui-template@0.1.50",
+      "source": "../../packages/gui-template",
+      "checksum": "fe25e4c070d63306ee5347c170558cf65244812c8aadb59b9a44d009e9a6dc41"
+    },
+    {
+      "id": "gui@0.1.50",
+      "source": "../../packages/gui",
+      "checksum": "14fb009bf3bb4173e49ce5947c6b91bdff6e1193b6fadf85b2ff4d2d4a63e9ca"
+    }
+  ]
+}

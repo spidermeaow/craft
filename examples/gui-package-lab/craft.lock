@@ -2,13 +2,13 @@
   "format": 1,
   "root": "gui-package-lab@0.1.0",
   "dependencies": {
-    "gui": "gui@0.1.45"
+    "gui": "gui@0.1.50"
   },
   "packages": [
     {
-      "id": "gui@0.1.45",
+      "id": "gui@0.1.50",
       "source": "../../packages/gui",
-      "checksum": "af9134b5729f0e101839e4b34df4d11c954944edcf47866890be435b5fe219c1"
+      "checksum": "14fb009bf3bb4173e49ce5947c6b91bdff6e1193b6fadf85b2ff4d2d4a63e9ca"
     }
   ]
 }

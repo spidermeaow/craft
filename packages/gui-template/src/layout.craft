@@ -1,0 +1,101 @@
+import gui "gui"
+
+export func appHeader(id: String, title: String, subtitle: String, actions: UiNode[]): UiNode {
+    return appHeaderAdaptive(id, title, subtitle, [], [], actions, actions, 1200)
+}
+
+// The caller supplies compact actions so essential commands remain reachable.
+export func appHeaderAdaptive(id: String, title: String, subtitle: String, leading: UiNode[], center: UiNode[], actions: UiNode[], compactActions: UiNode[], width: Int): UiNode {
+    var labelItems: UiNode[] = [gui.textStyle(gui.text(id + "-title", title), 19, 700, ink())]
+    if subtitle != "" && width >= 900 {
+        labelItems.append(gui.textStyle(gui.text(id + "-subtitle", subtitle), 12, 400, muted()))
+    }
+    let labels: UiNode = gui.spacing(gui.column(id + "-labels", labelItems), 0, 3)
+    var row: UiNode[] = []
+    var padding: Int = 24
+    var gap: Int = 12
+    if width < 900 { padding = 16; gap = 8 }
+    if width < 650 { padding = 12 }
+    row.append(gui.size(gui.text(id + "-left", ""), padding, 1, padding, 1, 0))
+    for item in leading { row.append(gui.align(item, "stretch", "center")) }
+    row.append(gui.align(labels, "stretch", "center"))
+    row.append(gui.size(gui.text(id + "-fill", ""), 0, 0, 0, 0, 1))
+    if width >= 1200 {
+        for item in center { row.append(gui.align(item, "stretch", "center")) }
+    }
+    if width < 650 && compactActions.length > 0 {
+        for item in compactActions { row.append(gui.align(item, "stretch", "center")) }
+    } else {
+        for item in actions { row.append(gui.align(item, "stretch", "center")) }
+    }
+    row.append(gui.size(gui.text(id + "-right", ""), padding, 1, padding, 1, 0))
+    let toolbar: UiNode = gui.spacing(gui.row(id + "-row", row), 0, gap)
+    let band: UiNode = gui.surface(gui.size(gui.spacing(gui.panel(id + "-band", [toolbar]), 0, 0), 0, 67, 0, 67, 0), surfaceColor(), surfaceColor(), 0)
+    let line: UiNode = gui.surface(gui.size(gui.spacing(gui.panel(id + "-line", []), 0, 0), 0, 1, 0, 1, 0), dividerColor(), dividerColor(), 0)
+    return gui.column(id, [band, line])
+}
+
+export func pageContainer(id: String, children: UiNode[]): UiNode {
+    return pageContainerResponsive(id, children, 1200)
+}
+
+export func pageContainerResponsive(id: String, children: UiNode[], width: Int): UiNode {
+    return gui.spacing(gui.column(id, children), pagePadding(width), sectionGap())
+}
+
+export func contentSection(id: String, title: String, description: String, actions: UiNode[], content: UiNode[]): UiNode {
+    let labels: UiNode = gui.spacing(gui.column(id + "-labels", [
+        gui.textStyle(gui.text(id + "-title", title), headingSize(), 700, ink()),
+        gui.textWrap(gui.textStyle(gui.text(id + "-description", description), bodySize(), 400, muted()))
+    ]), 0, 4)
+    var heading: UiNode[] = [labels, gui.size(gui.text(id + "-fill", ""), 0, 0, 0, 0, 1)]
+    for action in actions { heading.append(action) }
+    var parts: UiNode[] = [gui.spacing(gui.row(id + "-heading", heading), 0, mediumGap())]
+    for item in content { parts.append(item) }
+    return gui.spacing(gui.column(id, parts), 0, sectionGap())
+}
+
+export func breadcrumb(id: String, parts: String[]): UiNode {
+    var nodes: UiNode[] = []
+    for i in 0..parts.length {
+        if i > 0 { nodes.append(gui.textStyle(gui.text(id + "-separator-" + std.convert.toString(i), "/"), 12, 400, muted())) }
+        var paint: Int = muted()
+        var weight: Int = 400
+        if i == parts.length - 1 { paint = ink(); weight = 600 }
+        nodes.append(gui.textStyle(gui.text(id + "-part-" + std.convert.toString(i), parts[i]), 12, weight, paint))
+    }
+    return gui.spacing(gui.row(id, nodes), 0, smallGap())
+}
+
+// Tabs use native buttons. The caller changes selected after ButtonPressed.
+export func tabs(id: String, labels: String[], selected: Int): UiNode {
+    var nodes: UiNode[] = []
+    for i in 0..labels.length {
+        var variant: String = "secondary"
+        if i == selected { variant = "primary" }
+        nodes.append(actionButton(id + "-" + std.convert.toString(i), labels[i], variant, true))
+    }
+    return gui.spacing(gui.row(id, nodes), 0, smallGap())
+}
+
+export func toolbar(id: String, actions: UiNode[]): UiNode {
+    return gui.spacing(gui.row(id, actions), 0, smallGap())
+}
+
+export func splitPanel(id: String, first: UiNode, second: UiNode, percent: Int): UiNode {
+    return gui.splitView(id, first, second, percent, 180, 240)
+}
+
+// Grid measures its allocated parent width. availableWidth only caps columns.
+export func formGrid(id: String, fields: UiNode[], availableWidth: Int, maxColumns: Int): UiNode {
+    var columns: Int = 1
+    if availableWidth >= 650 { columns = 2 }
+    if availableWidth >= 1120 { columns = 3 }
+    if columns > maxColumns { columns = maxColumns }
+    return gui.autoGrid(id, fields, 280, columns, 14)
+}
+
+// Wide tables may scroll inside this viewport without scrolling the whole page.
+export func tableViewport(id: String, table: UiNode): UiNode {
+    return gui.scrollView(id, table)
+}

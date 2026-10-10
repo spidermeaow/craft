@@ -1,0 +1,35 @@
+import gui "gui"
+import module language "showcase.language"
+func languagePage(status: String): UiNode[] {
+    let muted: Int = gui.color(92, 106, 126, 255)
+    let ink: Int = gui.color(33, 47, 68, 255)
+    var items: UiNode[] = []
+    items.append(showcaseCard("language-intro", "REV 0.1.41 / LANGUAGE CORE", "Readable code at every scale",
+        ("This page is built from a project module declared in two files. It uses multiline " +
+        "arrays, nested calls, boolean expressions and trailing commas. The UI uses the same " +
+        "public gui package as the rest of this Showcase.")))
+    var actions: UiNode[] = []
+    actions.append(gui.size(gui.primaryButton("language-total", "Run calculation"), 180, 44, 180, 44, 0))
+    actions.append(gui.size(gui.secondaryButton("language-compare", "Check predicate"), 180, 44, 180, 44, 0))
+    var demo: UiNode[] = []
+    let preview: String = "Module preview: " + std.convert.toString(language.sampleTotal()) + "  /  expected: 60"
+    demo.append(gui.textStyle(gui.text("language-preview", preview), 18, 700, ink))
+    demo.append(gui.spacing(gui.row("language-actions", actions), 0, 12))
+    demo.append(gui.textWrap(gui.textStyle(gui.text("language-status", status), 14, 600, gui.primaryColor())))
+    items.append(componentPanel("language-live", "01 / RUN IT", "Two files, one module",
+        ("The private add() helper lives in language_math.craft; the exported functions live " +
+        "in language_api.craft. Both files declare module showcase.language. Use the buttons " +
+        "to exercise the public functions through import module."),
+        demo))
+    items.append(showcaseCard("language-syntax", "02 / SYNTAX", "Multiline without backslashes",
+        ("The calculation uses an array with a trailing comma and a nested function call split " +
+        "across lines. The predicate continues after &&. The source is intentionally " +
+        "formatted for reading rather than squeezed onto one line.")))
+    items.append(showcaseCard("language-compat", "03 / REGRESSION", "Keep existing pages working",
+        ("Visit Excel, Contacts and Rendering Lab after using this page. Those screens still " +
+        "use the older same-project source style and the gui package, so they help reveal " +
+        "compatibility problems.")))
+    items.append(gui.textStyle(gui.text("language-hint",
+        "Source: src/meta/language_math.craft + src/meta/language_api.craft"), 12, 400, muted))
+    return items
+}

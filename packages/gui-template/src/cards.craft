@@ -1,0 +1,32 @@
+import gui "gui"
+
+export func statCard(id: String, label: String, value: String, detail: String, icon: String, status: String): UiNode {
+    var valuePaint: Int = ink()
+    if status == "warning" { valuePaint = warningColor() }
+    if status == "danger" { valuePaint = dangerColor() }
+    if status == "success" { valuePaint = successColor() }
+    var items: UiNode[] = []
+    if icon != "" {
+        var iconDraw: UiDraw[] = [gui.fillRect(0, 0, 40, 40, activeFill(), 8)]
+        for stroke in iconDraws(icon, accent()) { iconDraw.append(stroke) }
+        items.append(gui.canvas(id + "-icon", 40, 40, iconDraw))
+    }
+    items.append(gui.textStyle(gui.text(id + "-label", label.upper()), 12, 600, muted()))
+    items.append(gui.textWrap(gui.textStyle(gui.text(id + "-value", value), metricSize(), 700, valuePaint)))
+    items.append(gui.textWrap(gui.textStyle(gui.text(id + "-detail", detail), 13, 400, muted())))
+    let stack: UiNode = gui.spacing(gui.column(id + "-stack", items), 0, 8)
+    return gui.surface(gui.spacing(gui.panel(id + "-panel", [stack]), 22, 0), surfaceColor(), dividerColor(), cardRadius())
+}
+
+// availableWidth is the content area, not the entire window.
+export func metricGrid(id: String, cards: UiNode[], availableWidth: Int): UiNode {
+    var maxColumns: Int = 1
+    if availableWidth >= 500 { maxColumns = 2 }
+    if availableWidth >= 1120 { maxColumns = 4 }
+    return gui.autoGrid(id, cards, 240, maxColumns, 16)
+}
+
+export func metricGridResponsive(id: String, cards: UiNode[], availableWidth: Int, viewportWidth: Int): UiNode {
+    if viewportWidth < 650 { return gui.autoGrid(id, cards, 240, 1, 16) }
+    return metricGrid(id, cards, availableWidth)
+}

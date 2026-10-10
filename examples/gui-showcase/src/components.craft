@@ -1,0 +1,185 @@
+import gui "gui"
+func showcaseCard(id: String, label: String, title: String, detail: String): UiNode {
+    let ink: Int = gui.color(33, 47, 68, 255)
+    let muted: Int = gui.color(92, 106, 126, 255)
+    var items: UiNode[] = []
+    items.append(gui.textStyle(gui.text(id + "-label", label), 12, 700, gui.color(38, 92, 204, 255)))
+    items.append(gui.textStyle(gui.text(id + "-title", title), 20, 700, ink))
+    items.append(gui.textWrap(gui.textStyle(gui.text(id + "-detail", detail), 14, 400, muted)))
+    let stack: UiNode = gui.spacing(gui.column(id + "-stack", items), 0, 10)
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [stack]), 22, 0)
+    return gui.surface(panel, gui.color(255, 255, 255, 255), gui.color(229, 234, 242, 255), 12)
+}
+
+func componentPanel(id: String, kicker: String, title: String, description: String, examples: UiNode[]): UiNode {
+    let ink: Int = gui.color(33, 47, 68, 255)
+    let muted: Int = gui.color(92, 106, 126, 255)
+    var items: UiNode[] = []
+    items.append(gui.textStyle(gui.text(id + "-kicker", kicker), 12, 700, gui.primaryColor()))
+    items.append(gui.textStyle(gui.text(id + "-title", title), 21, 700, ink))
+    items.append(gui.textWrap(gui.textStyle(gui.text(id + "-description", description), 14, 400, muted)))
+    for example in examples {
+        items.append(example)
+    }
+    let stack: UiNode = gui.spacing(gui.column(id + "-stack", items), 0, 16)
+    return gui.surface(gui.spacing(gui.panel(id + "-panel", [stack]), 26, 0), gui.color(255, 255, 255, 255),
+        gui.borderColor(), 14)
+}
+
+func componentInput(id: String, value: String, placeholder: String, border: Int, enabled: Bool): UiNode {
+    var fill: Int = gui.color(255, 255, 255, 255)
+    var inputBorder: Int = border
+    if ! enabled {
+        fill = gui.color(243, 246, 250, 255)
+        inputBorder = gui.color(211, 219, 231, 255)
+    }
+    let styled: UiNode = gui.inputStyle(gui.textInput(id, value, placeholder), fill, inputBorder, 8)
+    return gui.maxSize(gui.size(gui.focusPolicy(styled, true, enabled), 0, 44, 0, 44, 0), 520, 0)
+}
+
+func alignmentCanvas(): UiNode {
+    let ink: Int = gui.color(33, 47, 68, 255)
+    let muted: Int = gui.color(92, 106, 126, 255)
+    let border: Int = gui.borderColor()
+    let labels: String[] = ["START", "CENTER", "END"]
+    let alignments: String[] = ["start", "center", "end"]
+    var draws: UiDraw[] = []
+    for index in 0..3 {
+        let x: Int = 8 + index * 194
+        draws.append(gui.fillRect(x, 4, 184, 76, gui.color(246, 249, 254, 255), 8))
+        draws.append(gui.strokeRect(x, 4, 184, 76, border, 1, 8))
+        draws.append(gui.drawTextStyled(labels[index], x + 10, 10, 164, 18, muted, 11, 700, "start"))
+        draws.append(gui.drawTextStyled("Aa 123", x + 10, 34, 164, 30, ink, 17, 600, alignments[index]))
+    }
+    return gui.canvas("component-alignment-canvas", 588, 84, draws)
+}
+
+func componentsPage(actionStatus: String, sampleName: String, sampleNative: String, sampleEmail: String,
+    fieldStatus: String, fieldError: Bool): UiNode[] {
+    let ink: Int = gui.color(33, 47, 68, 255)
+    let muted: Int = gui.color(92, 106, 126, 255)
+    let blue: Int = gui.primaryColor()
+    var sections: UiNode[] = []
+    sections.append(showcaseCard("component-review-intro", "COMPONENT CHECK", "Rendering review",
+        ("Compare centered Button labels, Canvas alignment and the disabled field. The pointer " +
+        "should return to normal after the window opens.")))
+    var typeItems: UiNode[] = []
+    typeItems.append(gui.textStyle(gui.text("type-display", "Make room for clarity"), 29, 700, ink))
+    typeItems.append(gui.heading("type-heading", "A heading with a clear purpose"))
+    typeItems.append(gui.textWrap(gui.textStyle(gui.text("type-body",
+        ("Hierarchy turns a collection of words into a page that can be scanned, understood, " +
+        "and remembered. This sample pairs a strong heading with comfortable body text and a " +
+        "quieter caption.")),
+        15, 400, muted)))
+    typeItems.append(gui.textStyle(gui.text("type-caption", "CAPTION  /  SMALL AND CONSIDERED"), 12, 600, muted))
+    sections.append(componentPanel("type", "01 / TYPOGRAPHY", "Text, heading, and wrapping",
+        "Text styles create a hierarchy; wrapped copy grows with the available width.", typeItems))
+    var actionItems: UiNode[] = []
+    var buttons: UiNode[] = []
+    buttons.append(gui.size(gui.primaryButton("component-primary", "Primary action"), 180, 44, 180, 44, 0))
+    buttons.append(gui.size(gui.secondaryButton("component-secondary", "Secondary action"), 180, 44, 180, 44, 0))
+    actionItems.append(gui.spacing(gui.row("component-buttons", buttons), 0, 12))
+    var buttonStates: UiNode[] = []
+    buttonStates.append(gui.size(gui.button("component-standard", "Standard button"), 180, 44, 180, 44, 0))
+    buttonStates.append(gui.size(gui.focusPolicy(gui.secondaryButton("component-disabled", "Disabled action"),
+        false, false), 180, 44, 180, 44, 0))
+    actionItems.append(gui.spacing(gui.row("component-button-states", buttonStates), 0, 12))
+    actionItems.append(gui.size(gui.primaryButton("component-wide", "Wide primary action"), 372, 44, 372, 44, 0))
+    actionItems.append(gui.size(gui.secondaryButton("component-compact", "Compact"), 136, 44, 136, 44, 0))
+    actionItems.append(gui.size(gui.primaryButton("component-stretch", "Container width"), 0, 44, 0, 44, 1))
+    actionItems.append(gui.textWrap(gui.textStyle(gui.text("action-alignment-note",
+        ("Compare 136, 180, 372, and container-width buttons. Every label should be centered; " +
+        "the disabled button should not respond.")),
+        13, 400, muted)))
+    actionItems.append(gui.textWrap(gui.textStyle(gui.text("action-status", actionStatus), 14, 600,
+        gui.color(26, 125, 94, 255))))
+    sections.append(componentPanel("action", "02 / BUTTONS", "Actions and visible states",
+        ("Compare primary, secondary, standard, and disabled buttons. Click or use Tab, Enter, " +
+        "and Space; the status changes for enabled actions."),
+        actionItems))
+    var fieldItems: UiNode[] = []
+    fieldItems.append(gui.field("component-name", "Name", sampleName, "e.g. Taylor Lee"))
+    fieldItems.append(gui.textStyle(gui.text("field-native-label", "Native TextInput (baseline)"), 14, 600, ink))
+    fieldItems.append(gui.maxSize(gui.size(gui.accessible(gui.textInput("component-native-input", sampleNative,
+        "Default Windows style"), "Native TextInput", "textbox"), 0, 44, 0, 44, 0), 520, 0))
+    fieldItems.append(gui.textStyle(gui.text("field-label-email", "Custom TextInput with validation border"),
+        14, 600, ink))
+    var emailBorder: Int = gui.borderColor()
+    if fieldError {
+        emailBorder = gui.color(196, 69, 74, 255)
+    }
+    fieldItems.append(componentInput("component-email", sampleEmail, "name@example.com", emailBorder, true))
+    fieldItems.append(gui.textStyle(gui.text("field-compact-label", "Compact styled TextInput (320 px)"), 14, 600, ink))
+    fieldItems.append(gui.maxSize(componentInput("component-compact-input", sampleName,
+        "Type here to compare padding", gui.borderColor(), true), 320, 0))
+    fieldItems.append(gui.textWrap(gui.textStyle(gui.text("field-help",
+        ("Both inputs keep native caret, selection, clipboard, and IME behavior. The button " +
+        "checks whether the styled input is empty.")),
+        13, 400, muted)))
+    fieldItems.append(gui.size(gui.secondaryButton("component-validate", "Check required"), 170, 42, 170, 42, 0))
+    var fieldMessageColor: Int = gui.color(26, 125, 94, 255)
+    if fieldError {
+        fieldMessageColor = gui.color(175, 58, 64, 255)
+    }
+    fieldItems.append(gui.textWrap(gui.textStyle(gui.text("field-status", fieldStatus), 13, 600, fieldMessageColor)))
+    fieldItems.append(gui.textStyle(gui.text("field-disabled-label", "Disabled TextInput"), 14, 600, ink))
+    fieldItems.append(componentInput("component-disabled-input", "Disabled example", "Unavailable",
+        gui.borderColor(), false))
+    fieldItems.append(gui.textWrap(gui.textStyle(gui.text("field-disabled-note",
+        "The disabled field should have one even background, readable text, and no caret or keyboard focus."),
+        13, 400, muted)))
+    sections.append(componentPanel("field", "03 / TEXT INPUTS", "Fields, focus, and validation",
+        ("Compare the native baseline, styled field, custom input, and disabled state. Focus " +
+        "and error borders use the native TextInput control."),
+        fieldItems))
+    var surfaceItems: UiNode[] = []
+    var surfaceSamples: UiNode[] = []
+    surfaceSamples.append(gui.surfaceCard("surface-light", [gui.heading("surface-light-title", "Surface card"),
+        gui.textWrap(gui.textStyle(gui.text("surface-light-copy",
+        "A reusable card with space for a heading and supporting copy."), 14, 400, muted))], gui.color(245, 249,
+        255, 255), gui.borderColor(), 12))
+    surfaceSamples.append(gui.surface(gui.spacing(gui.panel("surface-warm-panel",
+        [gui.textStyle(gui.text("surface-warm-copy", "Custom surface"), 16, 600, ink)]), 20, 0), gui.color(255,
+        248, 238, 255), gui.color(239, 216, 184, 255), 12))
+    surfaceItems.append(gui.spacing(gui.column("surface-samples", surfaceSamples), 0, 12))
+    sections.append(componentPanel("surface", "04 / SURFACES", "Cards, borders, and color",
+        "A surface can frame a simple panel or the reusable surfaceCard composition.", surfaceItems))
+    var canvasDraws: UiDraw[] = []
+    canvasDraws.append(gui.fillRect(0, 0, 340, 70, gui.color(244, 248, 255, 255), 10))
+    canvasDraws.append(gui.drawLine(18, 57, 322, 57, gui.color(193, 209, 230, 255), 1))
+    let target: UiDraw[] = gui.targetButton("component-canvas-target", "Canvas target", 18, 14, 150, 36, blue,
+        gui.color(255, 255, 255, 255))
+    for draw in target {
+        canvasDraws.append(draw)
+    }
+    var canvasItems: UiNode[] = []
+    canvasItems.append(gui.canvas("component-canvas", 340, 70, canvasDraws))
+    canvasItems.append(gui.textWrap(gui.textStyle(gui.text("canvas-status", actionStatus), 13, 600,
+        gui.color(26, 125, 94, 255))))
+    canvasItems.append(gui.textWrap(gui.textStyle(gui.text("alignment-title",
+        "TEXT ALIGNMENT  /  EQUAL WIDTH SAMPLES"), 12, 700, blue)))
+    canvasItems.append(alignmentCanvas())
+    canvasItems.append(gui.textWrap(gui.textStyle(gui.text("alignment-note",
+        ("The same text should sit at the left, center, and right of each outlined box. " +
+        "Compare this with the Button labels above.")),
+        13, 400, muted)))
+    canvasItems.append(gui.textWrap(gui.textStyle(gui.text("canvas-note",
+        ("Canvas offers drawing commands, images, and accessible hit regions. The target above " +
+        "responds to pointer and keyboard activation.")),
+        13, 400, muted)))
+    sections.append(componentPanel("canvas", "05 / CANVAS", "Custom drawing and targets",
+        "Fill, line, styled text, and a named target are drawn in one retained Canvas.", canvasItems))
+    var layoutItems: UiNode[] = []
+    var tiles: UiNode[] = []
+    tiles.append(showcaseCard("component-tile-a", "A", "Row", "Items align side by side."))
+    tiles.append(showcaseCard("component-tile-b", "B", "Column", "Items stack with spacing."))
+    tiles.append(showcaseCard("component-tile-c", "C", "Grid", "Cells adapt to width."))
+    layoutItems.append(gui.autoGrid("component-grid", tiles, 180, 3, 12))
+    layoutItems.append(gui.textWrap(gui.textStyle(gui.text("layout-api-note",
+        ("The Showcase also uses panel, size, maxSize, align, spacing, scrollView, and a split " +
+        "sidebar. Resize the window to inspect their behavior.")),
+        13, 400, muted)))
+    sections.append(componentPanel("layout-components", "06 / COMPOSITION", "Rows, columns, and grids",
+        "These layout helpers are the building blocks behind the other pages.", layoutItems))
+    return sections
+}

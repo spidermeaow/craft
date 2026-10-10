@@ -1,0 +1,64 @@
+import gui "gui"
+
+// Buttons keep native ButtonPressed, keyboard focus, and enabled behavior.
+export func actionButton(id: String, label: String, variant: String, enabled: Bool): UiNode {
+    var fill: Int = surfaceColor()
+    var border: Int = secondaryButtonBorder()
+    var foreground: Int = ink()
+    if variant == "primary" {
+        fill = accent()
+        border = accent()
+        foreground = surfaceColor()
+    }
+    if variant == "secondary" {
+        fill = surfaceColor()
+        border = secondaryButtonBorder()
+        foreground = ink()
+    }
+    if variant == "danger" {
+        fill = dangerColor()
+        border = dangerColor()
+        foreground = surfaceColor()
+    }
+    if !enabled {
+        fill = hoverFill()
+        border = dividerColor()
+        foreground = muted()
+    }
+    let button: UiNode = gui.textStyle(gui.button(id, label), bodySize(), 600, foreground)
+    let styled: UiNode = gui.surface(button, fill, border, controlRadius())
+    return gui.size(gui.focusPolicy(gui.accessible(styled, label, "button"), enabled, enabled), 0, 40, 0, 40, 0)
+}
+
+export func iconButtonState(id: String, icon: String, label: String, enabled: Bool, hovered: Bool): UiNode {
+    var paint: Int = ink()
+    var fill: Int = surfaceColor()
+    if hovered { fill = hoverFill() }
+    if !enabled { paint = muted(); fill = hoverFill() }
+    var draws: UiDraw[] = [gui.fillRect(0, 0, 40, 40, fill, controlRadius()), gui.strokeRect(0, 0, 40, 40, dividerColor(), 1, controlRadius())]
+    for stroke in iconDraws(icon, paint) { draws.append(stroke) }
+    draws.append(gui.targetPolicy(gui.hitRegion(id + "-target", 0, 0, 40, 40), true, enabled, label))
+    return gui.canvas(id, 40, 40, draws)
+}
+
+export func iconButton(id: String, icon: String, label: String, enabled: Bool): UiNode {
+    return iconButtonState(id, icon, label, enabled, false)
+}
+
+export func buttonGroup(id: String, buttons: UiNode[]): UiNode {
+    return gui.spacing(gui.row(id, buttons), 0, smallGap())
+}
+
+export func splitButton(id: String, primaryLabel: String, secondary: UiNode[], enabled: Bool): UiNode {
+    var buttons: UiNode[] = [actionButton(id, primaryLabel, "primary", enabled)]
+    for item in secondary { buttons.append(item) }
+    return buttonGroup(id + "-group", buttons)
+}
+
+// State belongs to the caller. Toggle emits ButtonPressed with the supplied ID.
+export func toggleSwitch(id: String, label: String, on: Bool, enabled: Bool): UiNode {
+    var text: String = label + "  Off"
+    var variant: String = "outline"
+    if on { text = label + "  On"; variant = "secondary" }
+    return actionButton(id, text, variant, enabled)
+}

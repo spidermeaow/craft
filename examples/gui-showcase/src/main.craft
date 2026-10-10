@@ -1,0 +1,435 @@
+import gui "gui"
+import module language "showcase.language"
+func main() {
+    let window: UiWindow = gui.openWindow("Craft UI Showcase", 980, 640)
+    gui.setWindowIcon(window, "assets/craft-blue.ico")
+    gui.maximizeWindow(window)
+    var selected: String = "home"
+    var name: String = ""
+    var email: String = ""
+    var company: String = ""
+    var note: String = ""
+    var formStatus: String = "No contact saved yet."
+    var actionStatus: String = "Choose an action to see feedback here."
+    var sampleName: String = ""
+    var sampleNative: String = ""
+    var sampleEmail: String = ""
+    var fieldStatus: String = "Enter an address, then choose Check required."
+    var fieldError: Bool = false
+    var excelRowIndex: Int = 2
+    var excelColIndex: Int = 0
+    var excelAnchorRow: Int = excelRowIndex
+    var excelAnchorCol: Int = excelColIndex
+    var excelCells: String[] = []
+    for sheetRow in 1..19 {
+        let initial: String[] = excelRow(sheetRow)
+        for sheetCol in 0..10 {
+            excelCells.append(initial[sheetCol])
+        }
+    }
+    var excelDraft: String = excelCells[10]
+    var excelOriginal: String = excelDraft
+    var excelStatus: String = "Click a cell and type directly, or edit the selected cell in the value bar."
+    var gridFirstRow: Int = 0
+    var gridEndRow: Int = 8
+    var gridFirstColumn: Int = 0
+    var gridEndColumn: Int = 6
+    var gridStatus: String = "Selection: none. Click a cell to begin."
+    var gridSelectedRow: Int = -1
+    var gridSelectedColumn: Int = -1
+    var renderPhase: Int = 0
+    gui.mount(window, screen(selected, name, email, company, note, formStatus, actionStatus, sampleName,
+        sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex, excelColIndex, excelAnchorRow,
+        excelAnchorCol, excelCells, excelDraft, excelStatus, gridFirstRow, gridEndRow, gridFirstColumn,
+        gridEndColumn, gridStatus, gridSelectedRow, gridSelectedColumn, renderPhase))
+    gui.bindShortcut(window, "excel-copy-shortcut", 67, 2)
+    gui.bindShortcut(window, "excel-paste-shortcut", 86, 2)
+    var running: Bool = true
+    while running {
+        if let event = gui.nextEvent(-1) {
+            if event.kind == "TextChanged" {
+                if event.nodeId == "contact-name-input" {
+                    name = event.text
+                }
+                if event.nodeId == "contact-email-input" {
+                    email = event.text
+                }
+                if event.nodeId == "contact-company-input" {
+                    company = event.text
+                }
+                if event.nodeId == "contact-note-input" {
+                    note = event.text
+                }
+                if event.nodeId == "component-name-input" {
+                    sampleName = event.text
+                }
+                if event.nodeId == "component-compact-input" {
+                    sampleName = event.text
+                }
+                if event.nodeId == "component-native-input" {
+                    sampleNative = event.text
+                }
+                if event.nodeId == "component-email" {
+                    sampleEmail = event.text
+                }
+                if event.nodeId == "theme-light-name-input" || event.nodeId == "theme-dark-name-input" {
+                    sampleName = event.text
+                }
+                if event.nodeId == "theme-light-email-input" {
+                    sampleEmail = event.text
+                }
+                if event.nodeId == "excel-value-input" {
+                    excelDraft = event.text
+                }
+                if excelEnabled(selected) && event.nodeId == "excel-active-editor" {
+                    excelCells[(excelRowIndex - 1) * 10 + excelColIndex] = event.text
+                    excelDraft = event.text
+                    gui.setText(window, "excel-value-input", event.text)
+                }
+            }
+            if event.kind == "VisibleGridRangeChanged" && event.nodeId == "showcase-virtual-grid" {
+                gridFirstRow = event.firstIndex
+                gridEndRow = event.endIndex
+                gridFirstColumn = event.firstColumn
+                gridEndColumn = event.endColumn
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+            }
+            if (event.kind == "GridCellPressed" ||
+                event.kind == "GridSelectionMoved") && event.nodeId == "showcase-virtual-grid" {
+                gridSelectedRow = event.firstIndex
+                gridSelectedColumn = event.firstColumn
+                if event.kind == "GridCellPressed" {
+                    gridStatus = "Mouse selected: row " + std.convert.toString(event.firstIndex + 1) +
+                    ", column " + std.convert.toString(event.firstColumn + 1) + "."
+                }
+                else {
+                    gridStatus = "Keyboard selected: row " + std.convert.toString(event.firstIndex + 1) +
+                    ", column " + std.convert.toString(event.firstColumn + 1) + "."
+                }
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+            }
+            if (event.kind == "GridCellPressed" || event.kind == "GridSelectionMoved") && event.nodeId == "excel-grid" {
+                if ! excelShiftHeld(event.modifiers) {
+                    excelAnchorRow = event.firstIndex + 1
+                    excelAnchorCol = event.firstColumn
+                }
+                excelRowIndex = event.firstIndex + 1
+                excelColIndex = event.firstColumn
+                excelDraft = excelCells[(excelRowIndex - 1) * 10 + excelColIndex]
+                excelOriginal = excelDraft
+                excelStatus = "Selected cell is ready for direct editing."
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+                gui.setText(window, "excel-active-editor", excelDraft)
+                gui.setText(window, "excel-value-input", excelDraft)
+                if excelAnchorRow == excelRowIndex && excelAnchorCol == excelColIndex {
+                    gui.focus(window, "excel-active-editor")
+                }
+                else {
+                    gui.focus(window, "excel-grid")
+                }
+            }
+            if event.kind == "GridRangeDragged" && event.nodeId == "excel-grid" {
+                excelAnchorRow = event.firstIndex + 1
+                excelAnchorCol = event.firstColumn
+                excelRowIndex = event.endIndex + 1
+                excelColIndex = event.endColumn
+                excelDraft = excelCells[(excelRowIndex - 1) * 10 + excelColIndex]
+                excelOriginal = excelDraft
+                excelStatus = "Range selected. Copy or Paste the highlighted cells."
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+                gui.focus(window, "excel-grid")
+            }
+            if event.kind == "CanvasPressed" {
+                if event.nodeId == "home" || event.nodeId == "projects" || event.nodeId == "excel" ||
+                event.nodeId == "engine-lab" || event.nodeId == "rendering" ||
+                event.nodeId == "window-icon" || event.nodeId == "language-lab" ||
+                event.nodeId == "contacts" || event.nodeId == "media" || event.nodeId == "components" ||
+                event.nodeId == "theme-forms" || event.nodeId == "layouts" {
+                    if excelEnabled(selected) {
+                        gui.unbindShortcut(window, "excel-copy-shortcut")
+                        gui.unbindShortcut(window, "excel-paste-shortcut")
+                    }
+                    selected = event.nodeId
+                    if excelEnabled(selected) {
+                        gui.bindShortcut(window, "excel-copy-shortcut", 67, 2)
+                        gui.bindShortcut(window, "excel-paste-shortcut", 86, 2)
+                    }
+                    gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                        sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                        excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                        gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                        gridSelectedColumn, renderPhase))
+                }
+            }
+            if event.kind == "KeyPressed" && event.nodeId == "excel-active-editor" {
+                if event.keyCode == 27 {
+                    excelCells[(excelRowIndex - 1) * 10 + excelColIndex] = excelOriginal
+                    excelDraft = excelOriginal
+                    excelStatus = "Edit cancelled; previous value restored."
+                    gui.setText(window, "excel-active-editor", excelOriginal)
+                    gui.setText(window, "excel-value-input", excelOriginal)
+                    gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                        sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                        excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                        gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                        gridSelectedColumn, renderPhase))
+                    gui.focus(window, "excel-grid")
+                }
+                if event.keyCode == 9 {
+                    excelOriginal = excelDraft
+                    excelAnchorRow = excelRowIndex
+                    excelAnchorCol = excelColIndex
+                    excelColIndex = excelColIndex + 1
+                    if excelColIndex == 10 {
+                        excelColIndex = 0
+                        excelRowIndex = excelRowIndex + 1
+                        if excelRowIndex == 19 {
+                            excelRowIndex = 1
+                        }
+                    }
+                    excelAnchorRow = excelRowIndex
+                    excelAnchorCol = excelColIndex
+                    excelDraft = excelCells[(excelRowIndex - 1) * 10 + excelColIndex]
+                    excelOriginal = excelDraft
+                    excelStatus = "Moved to the next cell."
+                    gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                        sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                        excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                        gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                        gridSelectedColumn, renderPhase))
+                    gui.setText(window, "excel-active-editor", excelDraft)
+                    gui.setText(window, "excel-value-input", excelDraft)
+                    gui.focus(window, "excel-active-editor")
+                }
+            }
+            if event.kind == "TextSubmitted" && event.nodeId == "excel-active-editor" {
+                excelDraft = event.text
+                excelCells[(excelRowIndex - 1) * 10 + excelColIndex] = excelDraft
+                excelOriginal = excelDraft
+                excelStatus = "Value confirmed in the selected cell."
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+            }
+            if event.kind == "TextSubmitted" && event.nodeId == "excel-value-input" {
+                excelDraft = event.text
+                excelCells[(excelRowIndex - 1) * 10 + excelColIndex] = excelDraft
+                excelOriginal = excelDraft
+                gui.setText(window, "excel-active-editor", excelDraft)
+                excelStatus = "Value applied to the selected cell."
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+            }
+            if event.kind == "ButtonPressed" || event.kind == "CommandInvoked" {
+                if event.nodeId == "language-total" {
+                    actionStatus = "Module returned " + std.convert.toString(language.sampleTotal()) + ". Expected 60."
+                }
+                if event.nodeId == "language-compare" {
+                    if language.sampleMatches() {
+                        actionStatus = "Predicate passed: total is 60 and add(4, 5) is 9."
+                    }
+                    else {
+                        actionStatus = "Predicate failed; inspect the module calculation."
+                    }
+                }
+                if event.nodeId == "icon-blue" || event.nodeId == "icon-orange" || event.nodeId == "icon-missing" {
+                    var iconPath: String = "assets/craft-blue.ico"
+                    if event.nodeId == "icon-orange" {
+                        iconPath = "assets/craft-orange.ico"
+                    }
+                    if event.nodeId == "icon-missing" {
+                        iconPath = "assets/does-not-exist.ico"
+                    }
+                    try {
+                        gui.setWindowIcon(window, iconPath)
+                        actionStatus = "Window icon changed to " + iconPath + "."
+                    }
+                    catch error {
+                        actionStatus = "Icon unchanged: " + error.message
+                    }
+                }
+                if event.nodeId == "render-move" {
+                    if renderPhase == 0 || renderPhase == 3 {
+                        renderPhase = 1
+                    }
+                    else {
+                        renderPhase = 0
+                    }
+                }
+                if event.nodeId == "render-reset" {
+                    renderPhase = 0
+                }
+                if event.nodeId == "render-full" {
+                    if renderPhase == 1 || renderPhase == 2 {
+                        renderPhase = 2
+                    }
+                    else {
+                        renderPhase = 3
+                    }
+                }
+                if event.nodeId == "render-backend-check" {
+                    print("Rendering Lab backend: " + gui.renderer(window))
+                }
+                if event.nodeId == "component-primary" {
+                    actionStatus = "Primary action activated."
+                }
+                if event.nodeId == "component-secondary" {
+                    actionStatus = "Secondary action activated."
+                }
+                if event.nodeId == "component-standard" {
+                    actionStatus = "Standard button activated."
+                }
+                if event.nodeId == "component-wide" {
+                    actionStatus = "Wide primary action activated."
+                }
+                if event.nodeId == "component-compact" {
+                    actionStatus = "Compact action activated."
+                }
+                if event.nodeId == "component-stretch" {
+                    actionStatus = "Container-width action activated."
+                }
+                if event.nodeId == "component-validate" {
+                    fieldError = sampleEmail == ""
+                    if fieldError {
+                        fieldStatus = "Enter an email address before continuing."
+                    }
+                    else {
+                        fieldStatus = "Address captured: " + sampleEmail
+                    }
+                }
+                if event.nodeId == "theme-light-validate" {
+                    fieldError = sampleEmail == ""
+                    if fieldError {
+                        fieldStatus = "Enter an email address before continuing."
+                    }
+                    else {
+                        fieldStatus = "Address captured: " + sampleEmail
+                    }
+                }
+                if event.nodeId == "theme-light-primary" || event.nodeId == "theme-light-secondary" ||
+                event.nodeId == "theme-dark-primary" || event.nodeId == "theme-dark-secondary" {
+                    fieldStatus = "Activated: " + event.nodeId
+                    fieldError = false
+                }
+                if event.nodeId == "excel-apply" {
+                    excelCells[(excelRowIndex - 1) * 10 + excelColIndex] = excelDraft
+                    excelOriginal = excelDraft
+                    gui.setText(window, "excel-active-editor", excelDraft)
+                    excelStatus = "Value applied to the selected cell."
+                }
+                if excelEnabled(selected) && (event.nodeId == "excel-copy" || event.nodeId == "excel-copy-shortcut") {
+                    try {
+                        gui.clipboardWriteText(window, excelCopyRange(excelCells, excelAnchorRow,
+                            excelAnchorCol, excelRowIndex, excelColIndex))
+                        excelStatus = "Selected range copied to the clipboard."
+                    }
+                    catch error {
+                        excelStatus = "Copy failed: " + error.message
+                    }
+                }
+                if excelEnabled(selected) && (event.nodeId == "excel-paste" || event.nodeId == "excel-paste-shortcut") {
+                    try {
+                        let pasted: String = gui.clipboardReadText(window)
+                        let lines: String[] = pasted.split("\n")
+                        var targetRow: Int = excelAnchorRow
+                        var targetCol: Int = excelAnchorCol
+                        if excelRowIndex < targetRow {
+                            targetRow = excelRowIndex
+                        }
+                        if excelColIndex < targetCol {
+                            targetCol = excelColIndex
+                        }
+                        for line in lines {
+                            if targetRow <= 18 {
+                                let values: String[] = line.split("\t")
+                                var writeCol: Int = targetCol
+                                for value in values {
+                                    if writeCol < 10 {
+                                        excelCells[(targetRow - 1) * 10 + writeCol] = value.split("\r")[0]
+                                    }
+                                    writeCol = writeCol + 1
+                                }
+                            }
+                            targetRow = targetRow + 1
+                        }
+                        excelDraft = excelCells[(excelRowIndex - 1) * 10 + excelColIndex]
+                        excelOriginal = excelDraft
+                        gui.setText(window, "excel-active-editor", excelDraft)
+                        gui.setText(window, "excel-value-input", excelDraft)
+                        excelStatus = "Clipboard text pasted into the sheet."
+                    }
+                    catch error {
+                        excelStatus = "Paste failed: " + error.message
+                    }
+                }
+                if event.nodeId == "save-contact" {
+                    if name == "" {
+                        formStatus = "Please enter a full name before saving."
+                    }
+                    else {
+                        try {
+                            var existing: String = ""
+                            if std.fs.exists("contacts.jsonl") {
+                                existing = std.fs.readText("contacts.jsonl")
+                            }
+                            let record: String = "{\"name\":" + std.json.quote(name) + ",\"email\":" +
+                            std.json.quote(email) + ",\"company\":" + std.json.quote(company) +
+                            ",\"note\":" + std.json.quote(note) + "}\n"
+                            std.fs.writeTextAtomic("contacts.jsonl", existing + record)
+                            name = ""
+                            email = ""
+                            company = ""
+                            note = ""
+                            gui.setText(window, "contact-name-input", "")
+                            gui.setText(window, "contact-email-input", "")
+                            gui.setText(window, "contact-company-input", "")
+                            gui.setText(window, "contact-note-input", "")
+                            formStatus = "Saved to contacts.jsonl."
+                        }
+                        catch error {
+                            formStatus = "Could not save this contact: " + error.message
+                        }
+                    }
+                }
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+            }
+            if gui.targetPressed(event, "component-canvas-target") {
+                actionStatus = "Canvas target activated."
+                gui.update(window, screen(selected, name, email, company, note, formStatus, actionStatus,
+                    sampleName, sampleNative, sampleEmail, fieldStatus, fieldError, excelRowIndex,
+                    excelColIndex, excelAnchorRow, excelAnchorCol, excelCells, excelDraft, excelStatus,
+                    gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn, gridStatus, gridSelectedRow,
+                    gridSelectedColumn, renderPhase))
+            }
+            if event.kind == "CloseRequested" {
+                running = false
+            }
+        }
+    }
+    gui.closeWindow(window)
+}

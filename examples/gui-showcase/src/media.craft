@@ -1,0 +1,36 @@
+import gui "gui"
+func mediaCard(id: String, path: String, width: Int, height: Int, label: String, title: String, caption: String,
+    description: String): UiNode {
+    let ink: Int = gui.color(33, 47, 68, 255)
+    let muted: Int = gui.color(92, 106, 126, 255)
+    var picture: UiDraw[] = []
+    picture.append(gui.drawImage(path, 0, 0, width, height))
+    var parts: UiNode[] = []
+    parts.append(gui.textStyle(gui.text(id + "-label", label), 12, 700, gui.color(38, 92, 204, 255)))
+    parts.append(gui.canvas(id + "-image", width, height, picture))
+    parts.append(gui.textStyle(gui.text(id + "-title", title), 21, 700, ink))
+    parts.append(gui.textWrap(gui.textStyle(gui.text(id + "-caption", caption), 14, 600, muted)))
+    parts.append(gui.textWrap(gui.textStyle(gui.text(id + "-description", description), 15, 400, muted)))
+    let stack: UiNode = gui.spacing(gui.column(id + "-content", parts), 0, 12)
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [stack]), 22, 0)
+    return gui.surface(panel, gui.color(255, 255, 255, 255), gui.color(229, 234, 242, 255), 14)
+}
+
+func mediaGallery(): UiNode[] {
+    var cards: UiNode[] = []
+    cards.append(mediaCard("media-workspace", "assets/media-workspace.png", 560, 373, "01 / LARGE FORMAT",
+        "The light before the work begins",
+        "Caption: A sketchbook and quiet desk in the first light of morning.",
+        ("A generous image opens the collection and gives the page a calm point of focus. Warm " +
+        "surfaces and natural light create space for observation before moving into smaller " +
+        "details below.")))
+    cards.append(mediaCard("media-forms", "assets/media-forms.png", 400, 267, "02 / MEDIUM FORMAT",
+        "Study in form", "Caption: Paper structures explore balance, shadow, and texture.",
+        ("The medium format brings the viewer closer to material and shape. It shows how a few " +
+        "restrained elements can carry a clear visual idea without filling every part of the " + "frame.")))
+    cards.append(mediaCard("media-shelf", "assets/media-shelf.png", 240, 160, "03 / SMALL FORMAT",
+        "Details worth keeping", "Caption: Books, greenery, and an abstract study on a studio shelf.",
+        ("The final image is smaller and more intimate. Its scale turns attention toward the " +
+        "everyday objects that give a creative space its character.")))
+    return cards
+}

@@ -1,4 +1,4 @@
-# Craft DB package 0.1.45 candidate
+# Craft DB package 0.1.50
 
 `db` provides strict helpers for materialized `DbRows` and `DbResult` on the public `std.db` API. The application creates and owns `DbConnection` and `DbTransaction`; package helpers do not retain either handle. MySQL, PostgreSQL, and SQL Server remain the supported drivers of `std.db`.
 

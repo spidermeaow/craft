@@ -1,0 +1,51 @@
+import gui "gui"
+func themeFormsPanel(id: String, dark: Bool, sampleName: String, sampleEmail: String, fieldStatus: String,
+    fieldError: Bool): UiNode {
+    var theme: gui.Theme = gui.lightTheme()
+    var title: String = "Light theme"
+    var caption: String = "Bright surface and clear controls"
+    var fill: Int = gui.color(255, 255, 255, 255)
+    var border: Int = gui.color(211, 223, 237, 255)
+    if dark {
+        theme = gui.darkTheme()
+        title = "Dark theme"
+        caption = "The native text editor keeps a light input surface for readable text."
+        fill = gui.color(29, 39, 56, 255)
+        border = gui.color(75, 94, 121, 255)
+    }
+    var parts: UiNode[] = []
+    parts.append(gui.themedHeading(id + "-title", title, theme))
+    parts.append(gui.fieldMessage(id + "-caption", caption, false, theme))
+    var actions: UiNode[] = []
+    actions.append(gui.size(gui.themedButton(id + "-primary", "Primary action", true, true, theme), 190, 44,
+        190, 44, 0))
+    actions.append(gui.size(gui.themedButton(id + "-secondary", "Secondary action", false, true, theme), 190,
+        44, 190, 44, 0))
+    parts.append(gui.spacing(gui.row(id + "-actions", actions), 0, 12))
+    parts.append(gui.size(gui.themedButton(id + "-disabled", "Disabled action", false, false, theme), 190, 44,
+        190, 44, 0))
+    if dark {
+        parts.append(gui.fieldMessage(id + "-status", fieldStatus, false, theme))
+    }
+    parts.append(gui.themedField(id + "-name", "Name · 320 px", sampleName, "Enter a name", 320, true, theme))
+    if ! dark {
+        parts.append(gui.themedField(id + "-email", "Email · 520 px", sampleEmail, "name@example.com", 520,
+            true, theme))
+        parts.append(gui.fieldMessage(id + "-email-message", fieldStatus, fieldError, theme))
+        parts.append(gui.size(gui.themedButton(id + "-validate", "Check required", true, true, theme), 190, 44,
+            190, 44, 0))
+        parts.append(gui.themedField(id + "-readonly", "Disabled field", "Read only sample", "", 320, false, theme))
+    }
+    let stack: UiNode = gui.spacing(gui.column(id + "-stack", parts), 0, 16)
+    return gui.surface(gui.spacing(gui.panel(id + "-panel", [stack]), 28, 0), fill, border, 14)
+}
+
+func themeFormsPage(sampleName: String, sampleEmail: String, fieldStatus: String, fieldError: Bool): UiNode[] {
+    var sections: UiNode[] = []
+    sections.append(showcaseCard("theme-intro", "GUI PACKAGE", "Theme and form components",
+        ("Compare both themes, click enabled buttons, use Tab to check focus, type in each " +
+        "field, then check the required Email field. Disabled controls should not respond.")))
+    sections.append(themeFormsPanel("theme-light", false, sampleName, sampleEmail, fieldStatus, fieldError))
+    sections.append(themeFormsPanel("theme-dark", true, sampleName, sampleEmail, fieldStatus, fieldError))
+    return sections
+}

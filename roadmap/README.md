@@ -28,6 +28,11 @@
 | Craft 0.1.43: Standard Library หกหมวดสำหรับ Windows (candidate) | [แผนและผล Rev.43](phase1/craft-phase1-rev43-standard-library.md), [คู่มือ API](../docs/REV43-WINDOWS-STDLIB.md) |
 | Craft 0.1.44: `packages/api` บน `std.http` (candidate) | [แผนและผล Rev.44](phase1/craft-phase1-rev44-api-package.md), [คู่มือ package/api](../packages/api/README.md) |
 | Craft 0.1.45: `packages/db` บน `std.db` (candidate) | [แผนและผล Rev.45](phase1/craft-phase1-rev45-db-package.md) |
+| Craft 0.1.46: HTTP Client ใน `std.http` (ผ่าน) | [แผนและผล Rev.46](phase1/craft-phase1-rev46-http-client.md), [คู่มือ HTTP Client](../docs/REV46-HTTP-CLIENT.md) |
+| Craft 0.1.47: `packages/gui-template` (candidate) | [แผน Rev.47](phase1/craft-phase1-rev47-gui-template.md), [คู่มือ GUI template](../docs/REV47-GUI-TEMPLATE.md) |
+| Craft 0.1.48: enterprise sidebar (candidate) | [Rev.48 sidebar](../docs/REV48-ENTERPRISE-SIDEBAR.md) |
+| Craft 0.1.49: enterprise foundation Phase 1 (candidate) | [Rev.49 foundation](../docs/REV49-ENTERPRISE-FOUNDATION.md) |
+| Craft 0.1.50: responsive GUI template (candidate) | [Rev.50 guide and status](../docs/REV50-RESPONSIVE-GUI.md) |
 | Craft 0.2.2: แจกจ่าย Desktop และ Server/API จาก CraftBundle | [แผน Deployment](craft-0.2.2-deployment-plan.md) |
 
 [craft-phases.md](craft-phases.md) นิยาม Phase ที่ใช้อยู่. งานใหม่อยู่ภายใต้ Phase 1 และแยกหัวข้อ Runtime, package หรือการตรวจรับในแต่ละ revision.

@@ -1,0 +1,7 @@
+name = "gui-template"
+version = "0.1.50"
+edition = "2026"
+entry = "library"
+
+[dependencies]
+gui = { path = "../gui" }

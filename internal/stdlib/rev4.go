@@ -53,9 +53,15 @@ func NativeStructs() []*ast.Struct {
 	response.Name = "HttpResponse"
 	config := fields([]string{"address", "maxConcurrent", "maxConnections", "maxBodyBytes", "maxHeaderBytes", "readTimeoutMs", "writeTimeoutMs", "idleTimeoutMs", "requestTimeoutMs", "shutdownTimeoutMs"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int})
 	config.Name = "HttpConfig"
+	clientRequest := fields([]string{"method", "url", "headers", "body"}, []ast.Type{ast.String, ast.String, ast.String.Array().Map(), ast.Bytes})
+	clientRequest.Name = "HttpClientRequest"
+	clientConfig := fields([]string{"timeoutMs", "maxResponseBytes", "maxResponseHeaderBytes"}, []ast.Type{ast.Int, ast.Int, ast.Int})
+	clientConfig.Name = "HttpClientConfig"
+	clientResponse := fields([]string{"status", "headers", "body"}, []ast.Type{ast.Int, ast.String.Array().Map(), ast.Bytes})
+	clientResponse.Name = "HttpClientResponse"
 	uiEvent := fields([]string{"kind", "windowId", "x", "y", "width", "height", "keyCode", "modifiers", "scale", "nodeId", "firstIndex", "endIndex", "text", "firstColumn", "endColumn"}, []ast.Type{ast.String, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Int, ast.Float, ast.String, ast.Int, ast.Int, ast.String, ast.Int, ast.Int})
 	uiEvent.Name = "UiEvent"
-	result := append([]*ast.Struct{request, response, config, uiEvent}, dbStructs()...)
+	result := append([]*ast.Struct{request, response, config, clientRequest, clientConfig, clientResponse, uiEvent}, dbStructs()...)
 	result = append(result, rev43DataStructs()...)
 	return append(result, rev43ProcessStruct())
 }
@@ -81,6 +87,9 @@ func init() {
 	add("std.http.response", "HttpResponse", ast.Int, ast.Bytes)
 	add("std.http.request", "HttpRequest", ast.String, ast.String, ast.Bytes)
 	add("std.http.stop", ast.Void, ast.Context)
+	add("std.http.clientRequest", "HttpClientRequest", ast.String, ast.String, ast.Bytes)
+	add("std.http.clientConfig", "HttpClientConfig")
+	add("std.http.send", "HttpClientResponse", "HttpClientRequest", "HttpClientConfig")
 	signatures["std.http.serve"] = Signature{Result: ast.Void, Variadic: true}
 }
 func rev4Method(t ast.Type, n string) (Signature, bool) {
@@ -203,6 +212,12 @@ func invokeRev4(ctx context.Context, name string, args []any) (any, error) {
 		}
 		c.stop()
 		return nil, nil
+	case "std.http.clientRequest":
+		return nativeStruct("HttpClientRequest", args[0], args[1], rt.NewMap(), args[2]), nil
+	case "std.http.clientConfig":
+		return nativeStruct("HttpClientConfig", int64(10000), int64(1024*1024), int64(65536)), nil
+	case "std.http.send":
+		return sendHTTPClient(ctx, args[0].(*rt.Struct), args[1].(*rt.Struct))
 	}
 	return nil, fmt.Errorf("unknown native function %s", name)
 }

@@ -2,13 +2,13 @@
   "format": 1,
   "root": "api-server-package@0.1.0",
   "dependencies": {
-    "api": "api@0.1.45"
+    "api": "api@0.1.50"
   },
   "packages": [
     {
-      "id": "api@0.1.45",
+      "id": "api@0.1.50",
       "source": "../../packages/api",
-      "checksum": "159026de3852dc618869df63278001f9ba320fba784e3e950803b87f70d70204"
+      "checksum": "40cf14eec0f7539eb0f287bdcb983779be20357c523fbd426958d5ecd29ebe99"
     }
   ]
 }

@@ -1,0 +1,119 @@
+import gui "gui"
+import template "template"
+
+struct State {
+    var page: String
+    var hovered: String
+    var tab: Int
+    var enabled: Bool
+    var message: String
+    var width: Int
+}
+
+func menu(state: State): UiNode {
+    var items: UiNode[] = []
+    items.append(template.sectionLabel("showcase-group", "SHOWCASE"))
+    items.append(template.navItemState("dashboard", "Dashboard", "layout-dashboard", state.page, state.hovered == "dashboard"))
+    items.append(template.navItemState("components", "Components", "package", state.page, state.hovered == "components"))
+    items.append(template.navItemState("forms", "Forms", "", state.page, state.hovered == "forms"))
+    items.append(template.navItemState("data", "Data", "", state.page, state.hovered == "data"))
+    items.append(template.navItemState("navigation", "Navigation", "", state.page, state.hovered == "navigation"))
+    items.append(template.navItemState("dialogs", "Dialogs", "", state.page, state.hovered == "dialogs"))
+    items.append(template.navItemState("settings", "Settings", "", state.page, state.hovered == "settings"))
+    return template.navigationWithStatus("sidebar", "Craft Enterprise", "UI Showcase", items, "Native UI Ready", "Craft Runtime 0.1.50")
+}
+
+func foundation(state: State): UiNode {
+    var nodes: UiNode[] = []
+    nodes.append(template.breadcrumb("crumb", ["Showcase", state.page]))
+    if state.page == "dashboard" {
+        nodes.append(template.contentSection("metrics", "Foundation preview", "Phase 1 demonstrates layout, buttons, and badges. Dashboard cards and activity arrive in Phase 2.", [], [
+            template.statusBadge("badge-ready", "READY", "success"),
+            template.statusBadge("badge-review", "REVIEW", "warning"),
+            template.statusBadge("badge-alert", "ALERT", "danger"),
+            template.statusBadge("badge-neutral", "NEUTRAL", "neutral")
+        ]))
+    } else if state.page == "components" {
+        nodes.append(template.contentSection("buttons", "Actions", "Native buttons emit ButtonPressed and keep keyboard focus.", [], [
+            template.buttonGroup("button-row", [
+                template.actionButton("primary-action", "Primary", "primary", true),
+                template.actionButton("secondary-action", "Secondary", "secondary", true),
+                template.actionButton("outline-action", "Outline", "outline", true),
+                template.actionButton("danger-action", "Danger", "danger", true),
+                template.actionButton("disabled-action", "Disabled", "primary", false)
+            ]),
+            template.iconButton("history-action", "history", "Show history", true),
+            template.toggleSwitch("toggle-action", "Notifications", state.enabled, true),
+            gui.text("action-message", state.message)
+        ]))
+    } else if state.page == "navigation" {
+        nodes.append(template.contentSection("nav-demo", "Navigation patterns", "Click a tab to change the selected state.", [], [
+            template.tabs("tabs", ["Overview", "Details", "Access"], state.tab),
+            gui.text("tab-message", "Selected tab: " + std.convert.toString(state.tab + 1)),
+            template.toolbar("tool-actions", [template.actionButton("toolbar-refresh", "Refresh", "secondary", true)])
+        ]))
+    } else {
+        var phase: String = "Phase 3"
+        if state.page == "data" { phase = "Phase 4" }
+        if state.page == "dialogs" { phase = "Phase 5" }
+        if state.page == "settings" { phase = "Phase 6" }
+        nodes.append(template.contentSection("future", state.page.upper(), "Planned for " + phase + ". This page is a navigation and layout placeholder in the Phase 1 showcase.", [], [
+            template.statusBadge("future-badge", "PLANNED", "neutral")
+        ]))
+    }
+    return template.pageContainer("page", nodes)
+}
+
+func screen(state: State): UiNode {
+    let header: UiNode = template.appHeader("header", "Craft Enterprise UI Showcase", "Phase 1 / Foundation", [
+        template.actionButton("header-action", "Action", "primary", true)
+    ])
+    return template.shell("root", menu(state), header, foundation(state), state.width)
+}
+
+func main() {
+    let window: UiWindow = gui.openWindow("Craft Enterprise UI Showcase", 1100, 740)
+    defer { gui.closeWindow(window) }
+    var state: State = State(page: "dashboard", hovered: "", tab: 0, enabled: false, message: "Choose an action", width: gui.viewportWidth(window))
+    gui.mount(window, screen(state))
+    var running: Bool = true
+    while running {
+        if let event = gui.nextEvent(100) {
+            var redraw: Bool = false
+            if event.kind == "CloseRequested" { running = false }
+            if gui.viewportChanged(event) {
+                state.width = event.width
+                redraw = true
+            }
+            if event.kind == "CanvasTargetEntered" && event.nodeId.endsWith("-target") {
+                state.hovered = event.nodeId.substring(0, event.nodeId.length - 7)
+                redraw = true
+            }
+            if event.kind == "CanvasTargetLeft" && event.nodeId.endsWith("-target") {
+                state.hovered = ""
+                redraw = true
+            }
+            if event.kind == "CanvasPressed" {
+                if event.nodeId == "dashboard" || event.nodeId == "components" || event.nodeId == "forms" || event.nodeId == "data" || event.nodeId == "navigation" || event.nodeId == "dialogs" || event.nodeId == "settings" {
+                    state.page = event.nodeId
+                    redraw = true
+                }
+            }
+            if event.kind == "ButtonPressed" {
+                if event.nodeId == "tabs-0" { state.tab = 0; redraw = true }
+                if event.nodeId == "tabs-1" { state.tab = 1; redraw = true }
+                if event.nodeId == "tabs-2" { state.tab = 2; redraw = true }
+                if event.nodeId == "toggle-action" { state.enabled = !state.enabled; redraw = true }
+                if event.nodeId == "primary-action" || event.nodeId == "secondary-action" || event.nodeId == "outline-action" || event.nodeId == "danger-action" || event.nodeId == "header-action" || event.nodeId == "toolbar-refresh" {
+                    state.message = "Pressed: " + event.nodeId
+                    redraw = true
+                }
+            }
+            if event.kind == "CanvasTargetPressed" && event.nodeId == "history-action-target" {
+                state.message = "Pressed: history-action"
+                redraw = true
+            }
+            if redraw { gui.update(window, screen(state)) }
+        }
+    }
+}

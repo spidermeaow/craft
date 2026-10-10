@@ -1,0 +1,117 @@
+import gui "gui"
+func tableCell(id: String, value: String, width: Int, color: Int, weight: Int): UiNode {
+    let label: UiNode = gui.textStyle(gui.text(id, value), 14, weight, color)
+    return gui.size(label, width, 0, width, 0, 0)
+}
+
+func projectRow(index: Int, name: String, owner: String, status: String, updated: String): UiNode {
+    let rowId: String = "project-row-" + std.convert.toString(index)
+    let ink: Int = gui.color(42, 57, 78, 255)
+    let muted: Int = gui.color(100, 114, 134, 255)
+    var statusColor: Int = gui.color(38, 92, 204, 255)
+    if status == "Active" {
+        statusColor = gui.color(26, 125, 94, 255)
+    }
+    if status == "Review" {
+        statusColor = gui.color(171, 103, 25, 255)
+    }
+    var code: String = "P-" + std.convert.toString(1000 + index)
+    if index == 0 {
+        code = "ID"
+    }
+    var cells: UiNode[] = []
+    cells.append(tableCell(rowId + "-id", code, 58, muted, 500))
+    cells.append(tableCell(rowId + "-name", name, 184, ink, 600))
+    cells.append(tableCell(rowId + "-owner", owner, 108, muted, 400))
+    cells.append(tableCell(rowId + "-status", status, 78, statusColor, 600))
+    cells.append(tableCell(rowId + "-updated", updated, 90, muted, 400))
+    let line: UiNode = gui.spacing(gui.row(rowId + "-cells", cells), 0, 10)
+    let panel: UiNode = gui.spacing(gui.panel(rowId + "-panel", [line]), 13, 0)
+    var fill: Int = gui.color(255, 255, 255, 255)
+    if index == 0 {
+        fill = gui.color(232, 240, 255, 255)
+    }
+    return gui.surface(panel, fill, gui.color(230, 235, 243, 255), 8)
+}
+
+func projectTable(): UiNode {
+    let names: String[] = ["Northstar Website", "Customer Portal", "Mobile Onboarding", "Design System",
+        "Insights Dashboard", "Search Refresh", "Billing Experience", "Content Library", "Support Center",
+        "Team Directory", "Partner Hub", "Launch Campaign", "Account Settings", "Data Migration",
+        "Product Analytics", "Accessibility Pass", "Editorial Calendar", "Workflow Builder", "Community Space",
+        "Platform Cleanup"]
+    let owners: String[] = ["A. Morgan", "J. Rivera", "S. Patel", "M. Chen", "T. Wilson", "R. Kim", "L. Brooks",
+        "D. Evans", "N. Carter", "P. Lewis", "K. Turner", "E. Foster", "C. Reed", "H. Scott", "B. Wright",
+        "F. Adams", "O. Parker", "I. Hughes", "G. Bell", "V. Cooper"]
+    let statuses: String[] = ["Active", "Review", "Planned", "Active", "Active", "Review", "Planned", "Active",
+        "Review", "Planned", "Active", "Active", "Review", "Planned", "Active", "Review", "Planned", "Active",
+        "Review", "Planned"]
+    let updated: String[] = ["Oct 07", "Oct 06", "Oct 04", "Oct 03", "Oct 01", "Sep 29", "Sep 27", "Sep 25",
+        "Sep 23", "Sep 20", "Sep 18", "Sep 16", "Sep 14", "Sep 12", "Sep 10", "Sep 08", "Sep 06", "Sep 04",
+        "Sep 02", "Aug 30"]
+    var rows: UiNode[] = []
+    rows.append(projectRow(0, "PROJECT", "OWNER", "STATUS", "UPDATED"))
+    for index in 0..20 {
+        rows.append(projectRow(index + 1, names[index], owners[index], statuses[index], updated[index]))
+    }
+    return gui.spacing(gui.column("project-table", rows), 0, 6)
+}
+
+func matrixCell(id: String, value: String, width: Int, fill: Int, ink: Int, weight: Int): UiNode {
+    let label: UiNode = gui.textStyle(gui.text(id + "-text", value), 14, weight, ink)
+    let panel: UiNode = gui.spacing(gui.panel(id + "-panel", [label]), 11, 0)
+    return gui.size(gui.surface(panel, fill, gui.color(224, 232, 242, 255), 7), width, 42, width, 42, 0)
+}
+
+func matrixMetric(id: String, value: String): UiNode {
+    var fill: Int = gui.color(245, 248, 253, 255)
+    var ink: Int = gui.color(75, 91, 112, 255)
+    if value == "3" {
+        fill = gui.color(232, 242, 255, 255)
+    }
+    if value == "4" {
+        fill = gui.color(215, 234, 255, 255)
+    }
+    if value == "5" {
+        fill = gui.color(219, 242, 231, 255)
+        ink = gui.color(24, 115, 81, 255)
+    }
+    return matrixCell(id, value, 72, fill, ink, 600)
+}
+
+func capacityRow(id: String, team: String, mon: String, tue: String, wed: String, thu: String, fri: String,
+    total: String): UiNode {
+    let white: Int = gui.color(255, 255, 255, 255)
+    let ink: Int = gui.color(33, 47, 68, 255)
+    var cells: UiNode[] = []
+    cells.append(matrixCell(id + "-team", team, 154, white, ink, 600))
+    cells.append(matrixMetric(id + "-mon", mon))
+    cells.append(matrixMetric(id + "-tue", tue))
+    cells.append(matrixMetric(id + "-wed", wed))
+    cells.append(matrixMetric(id + "-thu", thu))
+    cells.append(matrixMetric(id + "-fri", fri))
+    cells.append(matrixCell(id + "-total", total, 78, gui.color(234, 241, 253, 255), gui.primaryColor(), 700))
+    return gui.spacing(gui.row(id, cells), 0, 6)
+}
+
+func capacityMatrix(): UiNode {
+    let navy: Int = gui.color(35, 54, 82, 255)
+    let white: Int = gui.color(255, 255, 255, 255)
+    var header: UiNode[] = []
+    header.append(matrixCell("capacity-head-team", "TEAM", 154, navy, white, 700))
+    header.append(matrixCell("capacity-head-mon", "MON", 72, navy, white, 700))
+    header.append(matrixCell("capacity-head-tue", "TUE", 72, navy, white, 700))
+    header.append(matrixCell("capacity-head-wed", "WED", 72, navy, white, 700))
+    header.append(matrixCell("capacity-head-thu", "THU", 72, navy, white, 700))
+    header.append(matrixCell("capacity-head-fri", "FRI", 72, navy, white, 700))
+    header.append(matrixCell("capacity-head-total", "TOTAL", 78, navy, white, 700))
+    var rows: UiNode[] = []
+    rows.append(gui.spacing(gui.row("capacity-header", header), 0, 6))
+    rows.append(capacityRow("capacity-design", "Design", "3", "4", "2", "4", "3", "16"))
+    rows.append(capacityRow("capacity-engineering", "Engineering", "5", "4", "5", "3", "4", "21"))
+    rows.append(capacityRow("capacity-research", "Research", "2", "3", "3", "4", "2", "14"))
+    rows.append(capacityRow("capacity-content", "Content", "3", "2", "4", "3", "3", "15"))
+    rows.append(capacityRow("capacity-support", "Support", "4", "5", "4", "5", "4", "22"))
+    rows.append(capacityRow("capacity-operations", "Operations", "2", "3", "2", "3", "4", "14"))
+    return gui.spacing(gui.column("capacity-matrix", rows), 0, 6)
+}

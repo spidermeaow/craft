@@ -1,0 +1,11 @@
+import gui "gui"
+
+export func statusBadge(id: String, label: String, state: String): UiNode {
+    var paint: Int = muted()
+    var fill: Int = hoverFill()
+    if state == "success" { paint = successColor(); fill = gui.color(231, 246, 238, 255) }
+    if state == "warning" { paint = warningColor(); fill = gui.color(255, 245, 229, 255) }
+    if state == "danger" { paint = dangerColor(); fill = gui.color(255, 237, 240, 255) }
+    let text: UiNode = gui.textStyle(gui.text(id, label), 11, 600, paint)
+    return gui.surface(gui.spacing(gui.panel(id + "-panel", [text]), 8, 0), fill, fill, controlRadius())
+}

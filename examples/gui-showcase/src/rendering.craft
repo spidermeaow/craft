@@ -1,0 +1,90 @@
+import gui "gui"
+func pathGeometrySample(): UiNode {
+    let blue: Int = gui.color(38, 92, 204, 255)
+    let green: Int = gui.color(24, 128, 80, 255)
+    let orange: Int = gui.color(227, 133, 46, 255)
+    let ink: Int = gui.color(39, 52, 65, 255)
+    var draws: UiDraw[] = []
+    var circle: UiDraw[] = [gui.pathArcTo(95, 105, 62, 0, 360), gui.pathClose()]
+    draws.append(gui.fillPath(circle, gui.color(226, 238, 255, 255)))
+    draws.append(gui.strokePath(circle, blue, 3))
+    draws.append(gui.drawTextStyled("Circle", 42, 190, 110, 28, ink, 15, 600, "center"))
+    var arc: UiDraw[] = [gui.pathArcTo(245, 105, 62, 200, 290)]
+    draws.append(gui.strokePath(arc, orange, 8))
+    draws.append(gui.drawTextStyled("Open arc", 190, 190, 110, 28, ink, 15, 600, "center"))
+    var ring: UiDraw[] = [gui.pathArcTo(405, 105, 68, 0, 360), gui.pathClose(), gui.pathArcTo(405, 105, 39, 0,
+        -360), gui.pathClose()]
+    draws.append(gui.fillPath(ring, green))
+    draws.append(gui.drawTextStyled("Donut / two subpaths", 323, 190, 164, 28, ink, 15, 600, "center"))
+    var bezier: UiDraw[] = [gui.pathMoveTo(35, 315), gui.pathQuadraticTo(105, 230, 175, 315),
+        gui.pathCubicTo(230, 380, 280, 240, 340, 315)]
+    draws.append(gui.strokePath(bezier, blue, 5))
+    draws.append(gui.drawTextStyled("Quadratic + cubic", 35, 365, 305, 28, ink, 15, 600, "center"))
+    var closed: UiDraw[] = [gui.pathMoveTo(425, 260), gui.pathLineTo(555, 260), gui.pathQuadraticTo(615, 335,
+        500, 355), gui.pathLineTo(400, 325), gui.pathClose()]
+    draws.append(gui.fillPath(closed, gui.color(253, 226, 187, 255)))
+    draws.append(gui.strokePath(closed, orange, 3))
+    draws.append(gui.drawTextStyled("Closed fill + stroke", 400, 365, 220, 28, ink, 15, 600, "center"))
+    var clipped: UiDraw[] = [gui.pathArcTo(638, 78, 32, 0, 360), gui.pathClose()]
+    draws.append(gui.fillPath(clipped, gui.color(179, 116, 211, 255)))
+    draws.append(gui.strokePath(clipped, ink, 2))
+    return gui.maxSize(gui.size(gui.canvas("render-path-canvas", 640, 405, draws), 640, 405, 640, 405, 0), 640, 405)
+}
+
+func dirtyRegionSample(phase: Int): UiNode {
+    var draws: UiDraw[] = []
+    for row in 0..5 {
+        for col in 0..20 {
+            let x: Int = 12 + col * 30
+            let y: Int = 12 + row * 33
+            draws.append(gui.fillRect(x, y, 24, 25, gui.color(231, 239, 251, 255), 4))
+        }
+    }
+    var targetX: Int = 60
+    if phase == 1 || phase == 2 {
+        targetX = 445
+    }
+    draws.append(gui.fillRect(targetX, 75, 82, 64, gui.color(38, 92, 204, 255), 9))
+    draws.append(gui.strokeRect(targetX, 75, 82, 64, gui.color(18, 64, 160, 255), 2, 9))
+    var canvasId: String = "render-dirty-canvas"
+    if phase == 2 || phase == 3 {
+        canvasId = "render-dirty-canvas-full"
+    }
+    return gui.canvas(canvasId, 640, 188, draws)
+}
+
+func renderingPage(phase: Int): UiNode[] {
+    let muted: Int = gui.color(92, 106, 126, 255)
+    var items: UiNode[] = []
+    items.append(showcaseCard("render-intro", "CANVAS & PATHS / REV 0.1.39", "Rendering foundation",
+        "Canvas paths are general drawing primitives. The examples below use no Chart component or Spreadsheet logic."))
+    items.append(componentPanel("render-path", "01 / PATH GEOMETRY", "Shapes built from paths",
+        ("Compare the circle, open arc, two-subpath donut, Bézier curves, and closed shape. " +
+        "The purple circle at the right edge must be clipped by the Canvas on Direct2D and " + "GDI."),
+        [pathGeometrySample()]))
+    var controls: UiNode[] = []
+    controls.append(gui.size(gui.primaryButton("render-move", "Move square"), 168, 44, 168, 44, 0))
+    controls.append(gui.size(gui.secondaryButton("render-reset", "Reset position"), 168, 44, 168, 44, 0))
+    controls.append(gui.size(gui.secondaryButton("render-full", "Full redraw"), 168, 44, 168, 44, 0))
+    controls.append(gui.size(gui.secondaryButton("render-backend-check", "Print renderer"), 168, 44, 168, 44, 0))
+    var dirtyItems: UiNode[] = []
+    dirtyItems.append(gui.spacing(gui.row("render-controls", controls), 0, 12))
+    dirtyItems.append(dirtyRegionSample(phase))
+    dirtyItems.append(gui.textStyle(gui.text("render-status",
+        ("Move toggles left/right. Full redraw keeps the square in place; compare tiles and " +
+        "outlines before and after it.")),
+        13, 500, muted))
+    items.append(componentPanel("render-dirty", "02 / DIRTY REGIONS", "Move one object among 100 tiles",
+        ("Move repeatedly and check both old and new positions for stale paint. Full redraw " +
+        "must preserve the current square position and produce the same image."),
+        dirtyItems))
+    items.append(showcaseCard("render-backend", "03 / BACKEND COMPARISON", "Direct2D and GDI",
+        ("Run this page normally, then run with CRAFT_UI_RENDERER=gdi. Compare geometry and " +
+        "clipping at the same DPI; small anti-aliasing differences are expected. Set " +
+        "CRAFT_UI_TRACE=1 to inspect invalidation regions, invalidated pixels, full redraws, " +
+        "and renderer.")))
+    items.append(showcaseCard("render-regression", "04 / REGRESSION", "VirtualGrid still matters",
+        ("After inspecting paths, visit Virtual grid and Editable grid. Scroll fast, select a range, " +
+        "edit a cell, resize, and check that previous rendering and interaction remain " + "correct.")))
+    return items
+}

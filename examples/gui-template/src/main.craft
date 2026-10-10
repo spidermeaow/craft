@@ -1,0 +1,74 @@
+import gui "gui"
+import template "template"
+
+struct AppState {
+    var page: String
+    var name: String
+    var message: String
+    var width: Int
+}
+
+func screen(state: AppState): UiNode {
+    var menu: UiNode[] = []
+    menu.append(template.sectionLabel("workspace-heading", "WORKSPACE"))
+    menu.append(template.navItem("overview", "Overview", state.page))
+    menu.append(template.navItem("items", "Items", state.page))
+    let sidebar: UiNode = template.navigation("sidebar", "CRAFT  /  YOUR APP", "Desktop application", menu, "Craft 0.1.50")
+    let topbar: UiNode = template.topBar("topbar", "Your App", [gui.secondaryButton("refresh", "Refresh")])
+    var content: UiNode[] = []
+    if state.page == "items" {
+        content.append(template.pageHeader("items-header", "WORKSPACE  /  ITEMS", "Items", "Replace these sample cards with your own records."))
+        content.append(gui.autoGrid("item-cards", [template.card("first", "01 / ITEM", "First item", "A reusable Showcase-style card."), template.card("second", "02 / ITEM", "Second item", "Add data and actions here.")], 220, 2, 14))
+    } else {
+        content.append(template.pageHeader("overview-header", "WORKSPACE  /  OVERVIEW", "Welcome to your app", "Sidebar, TopBar, cards, and form are ready to extend."))
+        content.append(gui.autoGrid("summary-cards", [template.card("today", "01 / TODAY", "12", "Example activity for today."), template.card("active", "02 / ACTIVE", "4", "Example items in progress."), template.card("status", "03 / STATUS", "Ready", "Your app is ready to extend.")], 180, 3, 14))
+        let theme: gui.Theme = gui.lightTheme()
+        var fields: UiNode[] = []
+        fields.append(gui.themedField("name", "Your name", state.name, "Enter a name", 320, true, theme))
+        fields.append(gui.size(gui.themedButton("save", "Save", true, true, theme), 150, 44, 150, 44, 0))
+        fields.append(gui.fieldMessage("form-message", state.message, false, theme))
+        content.append(template.section("quick-form", "FORM EXAMPLE", "Quick form", "Use package/gui directly for controls inside a prepared section.", fields))
+    }
+    let page: UiNode = gui.spacing(gui.column("page", content), 0, 18)
+    return template.shell("root", sidebar, topbar, page, state.width)
+}
+
+func main() {
+    let window: UiWindow = gui.openWindow("GUI Template Example", 1100, 740)
+    defer { gui.closeWindow(window) }
+    var state: AppState = AppState(page: "overview", name: "", message: "Ready", width: gui.viewportWidth(window))
+    gui.mount(window, screen(state))
+    var running: Bool = true
+    while running {
+        if let event = gui.nextEvent(100) {
+            var redraw: Bool = false
+            if event.kind == "CloseRequested" { running = false }
+            if gui.viewportChanged(event) {
+                state.width = event.width
+                redraw = true
+            }
+            if event.kind == "CanvasPressed" {
+                if event.nodeId == "overview" {
+                    state.page = "overview"
+                    redraw = true
+                }
+                if event.nodeId == "items" {
+                    state.page = "items"
+                    redraw = true
+                }
+            }
+            if event.kind == "TextChanged" && event.nodeId == "name-input" { state.name = event.text }
+            if event.kind == "ButtonPressed" {
+                if event.nodeId == "refresh" {
+                    state.message = "Refreshed"
+                    redraw = true
+                }
+                if event.nodeId == "save" {
+                    state.message = "Saved: " + state.name
+                    redraw = true
+                }
+            }
+            if redraw { gui.update(window, screen(state)) }
+        }
+    }
+}

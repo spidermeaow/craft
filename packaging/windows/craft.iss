@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.45"
+  #define AppVersion "0.1.50"
 #endif
 
 [Setup]
@@ -29,6 +29,7 @@ Source: "..\..\dist\craft.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\packages\gui\*"; DestDir: "{app}\packages\gui"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\packages\gui-template\*"; DestDir: "{app}\packages\gui-template"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\packages\api\*"; DestDir: "{app}\packages\api"; Excludes: "dist\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\packages\db\*"; DestDir: "{app}\packages\db"; Excludes: "dist\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\dist\craft-language-support-0.2.2.vsix"; DestDir: "{app}\editor"; Flags: ignoreversion

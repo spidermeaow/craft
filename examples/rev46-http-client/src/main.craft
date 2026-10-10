@@ -1,0 +1,15 @@
+func main() {
+    let url: String = std.env.get("CRAFT_HTTP_CLIENT_URL")
+    if url == "" {
+        throw Exception("Set CRAFT_HTTP_CLIENT_URL to an http or https endpoint")
+    }
+    var request: HttpClientRequest = std.http.clientRequest(
+        "GET", url, std.bytes.fromString(""),
+    )
+    request.headers.set("accept", ["application/json"])
+    var config: HttpClientConfig = std.http.clientConfig()
+    config.timeoutMs = 5000
+    let response: HttpClientResponse = std.http.send(request, config)
+    print("HTTP status: " + std.convert.toString(response.status))
+    print("Response bytes: " + std.convert.toString(response.body.length()))
+}

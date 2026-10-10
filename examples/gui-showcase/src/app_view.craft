@@ -1,0 +1,172 @@
+import gui "gui"
+import module labels "showcase.labels"
+func screen(selected: String, name: String, email: String, company: String, note: String, formStatus: String,
+    actionStatus: String, sampleName: String, sampleNative: String, sampleEmail: String, fieldStatus: String,
+    fieldError: Bool, excelRowIndex: Int, excelColIndex: Int, excelAnchorRow: Int, excelAnchorCol: Int,
+    excelCells: String[], excelDraft: String, excelStatus: String, gridFirstRow: Int, gridEndRow: Int,
+    gridFirstColumn: Int, gridEndColumn: Int, gridStatus: String, gridSelectedRow: Int, gridSelectedColumn: Int,
+    renderPhase: Int): UiNode {
+    let white: Int = gui.color(255, 255, 255, 255)
+    let border: Int = gui.color(225, 231, 239, 255)
+    let muted: Int = gui.color(119, 132, 151, 255)
+    let ink: Int = gui.color(33, 47, 68, 255)
+    var sidebarItems: UiNode[] = []
+    sidebarItems.append(gui.textStyle(gui.text("brand", "CRAFT  /  SHOWCASE"), 19, 700, ink))
+    sidebarItems.append(gui.textStyle(gui.text("brand-caption", "Public GUI package / Windows"), 12, 400, muted))
+    sidebarItems.append(gui.size(gui.text("brand-space", ""), 0, 12, 0, 12, 0))
+    sidebarItems.append(gui.textStyle(gui.text("menu-caption", "START HERE"), 11, 700, muted))
+    sidebarItems.append(navButton("home", "Engine overview", selected))
+    sidebarItems.append(gui.textStyle(gui.text("controls-caption", "CONTROLS & LAYOUT"), 11, 700, muted))
+    sidebarItems.append(navButton("components", "Controls", selected))
+    sidebarItems.append(navButton("theme-forms", "Themes & forms", selected))
+    sidebarItems.append(navButton("layouts", "Layout & scrolling", selected))
+    sidebarItems.append(gui.textStyle(gui.text("data-caption", "DATA & TABLES"), 11, 700, muted))
+    sidebarItems.append(navButton("projects", "Tables", selected))
+    sidebarItems.append(navButton("excel", "Editable grid", selected))
+    sidebarItems.append(navButton("engine-lab", "Virtual grid", selected))
+    sidebarItems.append(gui.textStyle(gui.text("visual-caption", "DRAWING & MEDIA"), 11, 700, muted))
+    sidebarItems.append(navButton("rendering", "Canvas & paths", selected))
+    sidebarItems.append(navButton("media", "Images & captions", selected))
+    sidebarItems.append(gui.textStyle(gui.text("application-caption", "APP INTEGRATION"), 11, 700, muted))
+    sidebarItems.append(navButton("contacts", "Form example", selected))
+    sidebarItems.append(navButton("window-icon", "Window & icon", selected))
+    sidebarItems.append(gui.size(gui.text("sidebar-fill", ""), 0, 0, 0, 0, 1))
+    sidebarItems.append(gui.textStyle(gui.text("sidebar-footer", labels.versionLabel()), 12, 400, muted))
+    let sidebarColumn: UiNode = gui.spacing(gui.column("sidebar-items", sidebarItems), 0, 9)
+    let sidebarPanel: UiNode = gui.spacing(gui.panel("sidebar-panel", [sidebarColumn]), 22, 0)
+    let sidebar: UiNode = gui.surface(sidebarPanel, white, border, 0)
+    var contentItems: UiNode[] = []
+    contentItems.append(gui.textStyle(gui.text("eyebrow", pageCategory(selected) + "  /  " + pageTitle(selected)), 12,
+        700, gui.color(38, 92, 204, 255)))
+    contentItems.append(gui.textStyle(gui.text("page-title", pageTitle(selected)), 34, 700, ink))
+    contentItems.append(gui.textWrap(gui.textStyle(gui.text("page-description", pageSubtitle(selected)), 17,
+        400, muted)))
+    contentItems.append(gui.size(gui.text("intro-space", ""), 0, 15, 0, 15, 0))
+    if selected == "projects" {
+        contentItems.append(gui.textStyle(gui.text("capacity-kicker", "01 / WEEKLY CAPACITY  /  MOCK DATA"), 12,
+            700, gui.primaryColor()))
+        contentItems.append(gui.textWrap(gui.textStyle(gui.text("capacity-description",
+            ("A compact matrix compares six teams across the workweek. Tinted cells make busier " +
+            "days easier to spot; the final column shows each team's total.")),
+            14, 400, muted)))
+        contentItems.append(capacityMatrix())
+        contentItems.append(gui.size(gui.text("projects-section-space", ""), 0, 22, 0, 22, 0))
+        contentItems.append(gui.textStyle(gui.text("project-count",
+            "02 / PROJECT REGISTER  /  20 MOCK RECORDS"), 12, 700, gui.primaryColor()))
+        contentItems.append(gui.textWrap(gui.textStyle(gui.text("project-table-description",
+            ("The original register keeps one project per row with an owner, status, and last " +
+            "update. Compare its reading pattern with the matrix above.")),
+            14, 400, muted)))
+        contentItems.append(projectTable())
+    }
+    else if selected == "excel" {
+        contentItems.append(gui.textWrap(gui.textStyle(gui.text("excel-description",
+            ("Edit any cell directly. The selected value also appears above the sheet, where Apply " +
+            "or Enter updates that cell. Changes stay in memory while this window is open.")),
+            14, 400, muted)))
+        let sheet: UiNode[] = editableExcelSheet(excelRowIndex, excelColIndex, excelAnchorRow, excelAnchorCol,
+            excelCells, excelDraft, excelStatus)
+        for part in sheet {
+            contentItems.append(part)
+        }
+    }
+    else if selected == "engine-lab" {
+        contentItems.append(showcaseCard("lab-range-guide", "01 / SELECTION & CLIPBOARD", "Select, edit, copy, paste",
+            ("Use Shift+click, drag, or Shift+Arrow to select several cells. Copy the range to a " +
+            "text editor, then paste Unicode or Thai text back. Edit one cell directly; Enter " +
+            "commits and Escape restores its previous value. This sheet shares values with the " +
+            "Editable grid page.")))
+        let sheet: UiNode[] = editableExcelSheet(excelRowIndex, excelColIndex, excelAnchorRow, excelAnchorCol,
+            excelCells, excelDraft, excelStatus)
+        for part in sheet {
+            contentItems.append(part)
+        }
+        contentItems.append(showcaseCard("lab-uia-guide", "02 / ACCESSIBILITY",
+            "Inspect virtual grid accessibility",
+            ("In Accessibility Insights or a screen reader, inspect the grid and visible cells. " +
+            "The grid should be identified as a DataGrid; a cell name should include its row, " +
+            "column, and value. Virtualized cells outside the viewport are still pending.")))
+        contentItems.append(showcaseCard("lab-scale-guide", "03 / VIEWPORT", "Scroll a large generic grid",
+            ("The sample below represents 100,000 rows and 1,000 columns while supplying only " +
+            "visible cells. Scroll rapidly in both directions, select a cell, and compare the " +
+            "displayed coordinates with its outline. This also checks that the grid primitive " +
+            "works outside a spreadsheet.")))
+        contentItems.append(gui.textWrap(gui.textStyle(gui.text("lab-grid-status", gridStatus), 14, 600,
+            gui.primaryColor())))
+        let labRange: String = "Supplied viewport: rows " + std.convert.toString(gridFirstRow + 1) + "–" +
+        std.convert.toString(gridEndRow) + ", columns " + std.convert.toString(gridFirstColumn + 1) + "–" +
+        std.convert.toString(gridEndColumn) + "."
+        contentItems.append(gui.textStyle(gui.text("lab-grid-range", labRange), 13, 400, muted))
+        contentItems.append(virtualGridSample(gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn,
+            gridSelectedRow, gridSelectedColumn))
+        contentItems.append(showcaseCard("lab-limit-guide", "04 / CURRENT LIMITS",
+            "What this build does not prove",
+            ("Grid/Table/Selection UIA patterns, offscreen virtual items, variable cell sizes, " +
+            "pinned regions, dirty-cell rendering, and the DPI/GDI/IME acceptance matrix are not " +
+            "complete in Rev 0.1.38 yet.")))
+    }
+    else if selected == "rendering" {
+        let examples: UiNode[] = renderingPage(renderPhase)
+        for example in examples {
+            contentItems.append(example)
+        }
+    }
+    else if selected == "window-icon" {
+        let examples: UiNode[] = windowIconPage(actionStatus)
+        for example in examples {
+            contentItems.append(example)
+        }
+    }
+    else if selected == "language-lab" {
+        let examples: UiNode[] = languagePage(actionStatus)
+        for example in examples {
+            contentItems.append(example)
+        }
+    }
+    else if selected == "contacts" {
+        contentItems.append(contactForm(name, email, company, note, formStatus))
+    }
+    else if selected == "media" {
+        contentItems.append(gui.textStyle(gui.text("media-count", "3 IMAGES  /  A STUDY IN SCALE"), 12, 700, muted))
+        let cards: UiNode[] = mediaGallery()
+        for card in cards {
+            contentItems.append(card)
+        }
+    }
+    else if selected == "components" {
+        let sections: UiNode[] = componentsPage(actionStatus, sampleName, sampleNative, sampleEmail,
+            fieldStatus, fieldError)
+        for section in sections {
+            contentItems.append(section)
+        }
+    }
+    else if selected == "theme-forms" {
+        let sections: UiNode[] = themeFormsPage(sampleName, sampleEmail, fieldStatus, fieldError)
+        for section in sections {
+            contentItems.append(section)
+        }
+    }
+    else if selected == "layouts" {
+        let sections: UiNode[] = layoutsPage(gridFirstRow, gridEndRow, gridFirstColumn, gridEndColumn,
+            gridStatus, gridSelectedRow, gridSelectedColumn)
+        for section in sections {
+            contentItems.append(section)
+        }
+    }
+    else {
+        let sections: UiNode[] = articleSections()
+        for section in sections {
+            contentItems.append(section)
+        }
+        contentItems.append(gui.textStyle(gui.text("article-end", "CRAFT UI ENGINE  /  CRAFT 0.1.50"), 11,
+            700, muted))
+    }
+    let contentColumn: UiNode = gui.spacing(gui.column("content-items", contentItems), 34, 18)
+    let contentScroll: UiNode = gui.scrollView("article-scroll-" + selected, contentColumn)
+    let contentPanel: UiNode = gui.panel("content-panel", [contentScroll])
+    let content: UiNode = gui.surface(contentPanel, gui.color(247, 249, 252, 255), gui.color(247, 249, 252, 255), 0)
+    var body: UiNode[] = []
+    body.append(gui.size(sidebar, 250, 0, 250, 0, 0))
+    body.append(gui.size(content, 0, 0, 0, 0, 1))
+    return gui.row("layout", body)
+}

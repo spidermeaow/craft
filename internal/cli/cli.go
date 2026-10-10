@@ -17,11 +17,11 @@ import (
 )
 
 const Version = toolchain.Version
-const help = `Craft 0.1.45 — CLI and Runtime
+const help = `Craft 0.1.50 — CLI and Runtime
 
 Usage:
   craft version                Show toolchain version
-  craft new <directory>        Create a project
+  craft new <directory>        Create a minimal project
   craft init                   Initialize the current directory
   craft install [github.com/owner/repo@v1.2.3] [--alias name] [--offline] [--refresh]
   craft install --recover      Recover an interrupted package transaction
@@ -81,7 +81,7 @@ func RunWithInput(ctx context.Context, args []string, cwd string, in io.Reader, 
 		if len(args) != 1 {
 			return usage("usage: craft version")
 		}
-		fmt.Fprintf(out, "Craft %s\nMilestone: Phase 1 Rev.45 candidate\nTarget: %s-%s\nCompiler: Go\nExecution: Interpreter\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(out, "Craft %s\nMilestone: Phase 1 Rev.50\nTarget: %s-%s\nCompiler: Go\nExecution: Interpreter\n", Version, runtime.GOOS, runtime.GOARCH)
 		return 0
 	case "new":
 		if len(args) != 2 {
