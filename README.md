@@ -1,16 +1,10 @@
 # Craft 0.1.45 candidate (DB package)
 
-Craft is a general-purpose, statically typed programming language with a Go-based command-line interface and AST interpreter. Its language, runtime, standard library, and package system provide a foundation for applications and reusable libraries rather than prescribing one application framework. Today, Craft runs `.craft` programs on Windows and makes type and scope errors visible before execution.
+Craft is a statically typed language with a Go-based CLI and interpreter. It checks source before execution and currently targets Windows amd64. Projects can build CLI tools, HTTP services, and native Windows UI applications using the standard library and optional first-party packages.
 
-Rev.37 adds generic range selection and Unicode clipboard text APIs. Rev.36 adds one TextInput editor inside VirtualGrid; the user confirmed that the Showcase is fast, visually improved, and editable. Rev.35 changes repositioning and repainting of native TextInput controls during scroll; the user confirmed the visual artifact and speed improved. Rev.34 adds visible single-cell selection and keyboard navigation to VirtualGrid. Rev.33 adds a Windows VirtualGrid prototype with two-axis scrolling and visible-range events, and improves disabled TextInput coloring. Rev.32 corrects DirectWrite text alignment for styled Buttons and Canvas text and addresses the Windows startup feedback cursor. The Rev.32 Virtual Grid contract remains the long-term design; Rev.33 implements only its uniform-cell viewport prototype. Rev.31 added Windows maximize, styled TextInput, and updated Button visual states. Rev.30 added focus scopes, Canvas target policies, scoped shortcuts, and an initial Windows UI Automation provider. Rev.29 added focus policies, keyboard commands, and focus rings. Rev.28 added opt-in Text wrapping and a Grid that uses the width assigned by its parent. Rev.26 added native text measurement and responsive grid composition. Rev.25 added viewport queries, a horizontal scrollbar, basic text/surface styling and Canvas hit regions to the native UI Runtime. Rev.24 added retained Canvas painting. `packages/gui` and `packages/api` 0.1.44 candidates are available as optional Craft libraries; the earlier API framework remains archived. Craft still cannot build standalone application executables. See the [project direction](roadmap/craft-language-direction.md) and [GUI direction](roadmap/craft-gui-direction.md) for the shared definition and future goals.
+**Current source version:** 0.1.45 candidate. Rev.41 added multiline syntax and explicit project modules; Rev.43 added six Windows standard-library modules; Rev.44 added `packages/api`; Rev.45 added `packages/db`. The bundled `packages/gui`, `packages/api`, and `packages/db` use the same version as Craft. See the [roadmap index](roadmap/README.md) for earlier revisions and their acceptance status.
 
-See the [Rev.28 UI guide](docs/REV28-UI-REFLOW.md), [plan](roadmap/phase1/craft-phase1-rev28.md), and [status](roadmap/phase1/output/phase1-rev28-status.md). The public-GitHub package system from Rev.12 and native UI bridge from Rev.13 remain available.
-
-The user accepted [Craft 0.1.41](roadmap/phase1/craft-phase1-rev41.md). [Rev.42](roadmap/phase1/craft-phase1-rev42.md) builds a Craft spreadsheet app in `D:\02-Repository\craft-sheet` to assess the [UI Engine Final gate](roadmap/phase1/craft-phase1-rev40-final-gate.md); that gate is paused. [Rev.43](roadmap/phase1/craft-phase1-rev43-standard-library.md) adds six Windows Standard Library modules. [Rev.44](roadmap/phase1/craft-phase1-rev44-api-package.md) adds `packages/api` and is awaiting user acceptance.
-
-Craft is currently in [Phase 1](roadmap/craft-phases.md), which includes Runtime and package development in the same revision. [Rev.24](roadmap/phase1/craft-phase1-rev24.md) covers Runtime painting and GUI package 0.2.1; [Rev.25](roadmap/phase1/craft-phase1-rev25.md) covers Runtime interaction and GUI package 0.2.2; [Rev.26](roadmap/phase1/craft-phase1-rev26.md) covers responsive composition and GUI package 0.2.3. The [repository map](docs/PROJECT-STRUCTURE.md) shows where each part lives. Only the project owner decides when Craft is ready for V1.00.
-
-The planned **Phase 2** focuses on real-world readiness: stability, compatibility, diagnostics, performance, accessibility, and distribution, validated with real applications. It has not started. A phase change or package version does not announce Craft V1.00.
+Craft remains in [Phase 1](roadmap/craft-phases.md). The [Craft Sheet assessment](roadmap/phase1/craft-phase1-rev42.md) found that the [UI Engine Final gate](roadmap/phase1/craft-phase1-rev40-final-gate.md) has not passed; that work is paused. Rev.45 is an implemented candidate awaiting user acceptance. Only the project owner decides when Craft is ready for V1.00.
 
 | Artifact | Current version | Source of truth |
 | --- | --- | --- |
@@ -18,25 +12,26 @@ The planned **Phase 2** focuses on real-world readiness: stability, compatibilit
 | Optional GUI package | `0.1.45` candidate | `packages/gui/craft.toml`; tied to the Craft toolchain |
 | Optional API package | `0.1.45` candidate | `packages/api/craft.toml`; tied to the Craft toolchain |
 | Optional DB package | `0.1.45` candidate | `packages/db/craft.toml`; tied to the Craft toolchain |
-| Windows Setup source | `0.1.45` candidate | `packaging/windows/craft.iss`; build the installer separately |
+| Windows Setup | `0.1.45` candidate | `packaging/windows/craft.iss`; local build is in ignored `dist/` |
 
 ## Project map
 
-`cmd/` starts the CLI; `internal/` implements the language, standard library, package system, and native engines. `packages/gui/` is the optional Craft GUI library. `examples/` contains sample applications, `docs/` contains API guides and manual checks, and `roadmap/` contains plans and status. `packaging/` and `scripts/` build the distributable files. `Archive/` holds inactive historical packages. See the [full map](docs/PROJECT-STRUCTURE.md) and [roadmap index](roadmap/README.md).
+`cmd/` starts the CLI; `internal/` implements the language, standard library, package system, and native engines. `packages/gui/`, `packages/api/`, and `packages/db/` are optional first-party Craft libraries. `examples/` contains sample applications; `docs/` contains API guides; `roadmap/` records plans and acceptance status. `packaging/` and `scripts/` build distributable files. `Archive/` holds inactive historical packages. See the [full repository map](docs/PROJECT-STRUCTURE.md).
 
 ## What Craft provides
 
 - Static syntax, type, scope, and mutability checking with `craft check`.
 - Project execution, test blocks, and source formatting through `craft run`, `craft test`, and `craft fmt`.
 - Portable Craft source bundles via `craft build`.
-- Standard-library support for JSON, time, filesystem paths, environment values, HTTP, databases, encoding, cryptography, URLs, processes, regex, and Windows OS integration, subject to the revision-specific documentation.
+- Standard-library support for JSON, time, filesystem paths, environment values, HTTP, databases, encoding, cryptography, URLs, processes, regex, and Windows OS integration. See the [Rev.43 standard-library guide](docs/REV43-WINDOWS-STDLIB.md) and [database contract](docs/REV5-DATABASE.md).
 - GitHub package installation and dependency locking through `craft install` and `craft package lock`.
+- Optional [`gui`](packages/gui/README.md), [`api`](packages/api/README.md), and [`db`](packages/db/README.md) packages, built from public `std.ui`, `std.http`, and `std.db` APIs respectively.
 
-`craft build` produces a Craft source bundle, not a native executable for the application being built. Running a bundle still requires the Craft CLI. Craft is also not a sandbox for untrusted code.
+`craft build` produces a Craft source bundle, not a standalone application executable. Running the bundle requires Craft. The UI Runtime currently targets Windows; the [Final spreadsheet UI criterion](roadmap/craft-ui-final-excel-acceptance.md) remains open. Craft is not a sandbox for untrusted code.
 
 ## Install and get started
 
-For published versions, download `Craft-setup.exe` or the portable `craft.exe` from the [latest GitHub Release](https://github.com/spidermeaow/craft/releases/latest). Local build artifacts are not a published release. The installer supports Windows x64 per-user installation, adds the user PATH entry, registers `.craft` files, includes the matching `packages/gui` source and an uninstaller. Open a new terminal after installation.
+For published versions, download `Craft-setup.exe` or the portable `craft.exe` from the [latest GitHub Release](https://github.com/spidermeaow/craft/releases/latest). Check the release version: the latest published release may differ from the 0.1.45 source in this repository. Local build artifacts in ignored `dist/` are not GitHub Releases. The Windows x64 installer uses per-user installation, adds Craft to the user PATH, registers `.craft` files, includes matching `packages/gui`, `packages/api`, and `packages/db` sources, and provides an uninstaller. Open a new terminal after installation.
 
 ```powershell
 craft version
@@ -48,7 +43,7 @@ craft test
 craft fmt
 ```
 
-After building this source, `craft version` should report `0.1.45`. End users do not need Go: the compiler, interpreter, standard library, database drivers, and project templates are embedded in `craft.exe`.
+After building this source, `craft version` should report `0.1.45`. End users do not need Go: the CLI, interpreter, standard library, database drivers, and project templates are in `craft.exe`. The optional package sources are separate files, included with the installer; a portable `craft.exe` alone does not contain them.
 
 Release binaries are intentionally not committed to the source repository. To build the CLI yourself, see [Developing Craft](#developing-craft).
 
@@ -94,17 +89,26 @@ func main() {
 | `craft test` | Run test blocks without invoking `main`. |
 | `craft help` | Show command help. |
 
+## First-party packages
+
+These packages are source libraries installed beside the Craft CLI. Add a path dependency relative to your project's `craft.toml`, run `craft package lock`, and import the package in every source file that uses it. Their versions follow the Craft toolchain; do not set a separate dependency version.
+
+| Package | Provides | Guide and example |
+| --- | --- | --- |
+| `gui` | Windows UI composition and reusable controls on `std.ui` | [Guide](packages/gui/README.md), [GUI package lab](examples/gui-package-lab) |
+| `api` | HTTP routes, middleware, responses, and validation on `std.http` | [Guide](packages/api/README.md), [API server example](examples/api-server-package) |
+| `db` | Strict `DbRows`/`DbResult` helpers on `std.db` | [Guide](packages/db/README.md), [DB example](examples/db-package) |
+
+For a repository checkout, `examples/db-package/craft.toml` demonstrates `db = { path = "../../packages/db" }` followed by `import package db "db"`. For an installed copy, point the path to the package source under the Craft installation directory or copy that package into your project. `packages/db` does not provide an ORM or migration/seed runner; applications own SQL and connection/transaction lifetimes.
+
 ## Documentation and examples
 
-[`packages/gui`](packages/gui) รุ่น 0.1.45 candidate ใช้กับ UI Runtime 0.1.45; ดู [คู่มือ package](packages/gui/README.md) และ `examples/gui-package-lab`. Installer รวม package ไว้ที่ `{app}\packages\gui`; โปรเจกต์ภายนอกต้องคัดลอก package หรืออ้าง path ใน dependency แล้วรัน `craft package lock`. `craft gui init` ยังพักอยู่. API ของหกหมวด Standard Library อยู่ใน [คู่มือ Rev.43](docs/REV43-WINDOWS-STDLIB.md). [`packages/api`](packages/api) ช่วยสร้าง router, middleware และ response บน `std.http`; ดู [คู่มือ package](packages/api/README.md) และ [ตัวอย่าง](examples/api-server-package). [`packages/db`](packages/db) ช่วยอ่านผลลัพธ์ `std.db` อย่างเคร่งครัด; ดู [ตัวอย่าง](examples/db-package) และ [แผน Rev.45](roadmap/phase1/craft-phase1-rev45-db-package.md).
+- [Rev.41 language modules](docs/REV41-LANGUAGE-MODULES.md) and [`examples/rev41-language`](examples/rev41-language)
+- [Rev.43 Windows standard library](docs/REV43-WINDOWS-STDLIB.md) and [`examples/rev43-stdlib`](examples/rev43-stdlib)
+- [Rev.44 API package](roadmap/phase1/craft-phase1-rev44-api-package.md) and [Rev.45 DB package](roadmap/phase1/craft-phase1-rev45-db-package.md)
+- [Current GUI rendering](docs/REV39-UI-RENDERING.md), [window icons](docs/REV40-WINDOW-ICON.md), and [UI Final assessment](roadmap/craft-ui-final-excel-acceptance.md)
 
-Rev.22 UI Input Lab is in `examples/gui-input` and `D:\02-Repository\craft-test\runtime\11-ui-input`; it uses `std.ui` directly. The first text input uses a native Windows EDIT control and has limited styling; see the [guide](docs/REV22-UI-INPUT.md).
-
-Rev.23 UI Layout Lab is in `examples/gui-layout-lab`; it demonstrates sizing, nested split panes, independently scrolling panes and native text inputs. See the [layout guide](docs/REV23-UI-LAYOUT.md) and [manual walkthrough](docs/TRY-REV23.md).
-
-Rev.24 UI Paint Lab is in `examples/gui-paint-lab`; it demonstrates retained Canvas commands for shapes, text, PNG images, and local click events. See the [Canvas guide](docs/REV24-UI-PAINT.md) and [manual walkthrough](docs/TRY-REV24.md).
-
-Rev.13–20 guides describe the earlier package-based examples. In Rev.21, the current GUI examples call `std.ui` directly, and `examples/api-server` calls `std.http` directly. The original package and API server sources are under `Archive/`.
+Earlier UI labs remain available: [input](docs/REV22-UI-INPUT.md), [layout](docs/REV23-UI-LAYOUT.md), and [Canvas](docs/REV24-UI-PAINT.md). Rev.13–20 guides and `Archive/` describe older APIs; check the current package guides before copying those examples.
 
 - [GitHub package reference](docs/REV11-PACKAGES.md), [Rev.12 package guide](docs/REV12-PACKAGES.md), [Rev.12 walkthrough](docs/TRY-REV12.md), and `examples/rev11-github`
 - [Windows GUI bridge](docs/REV13-GUI-BRIDGE.md), [Rev.13 walkthrough](docs/TRY-REV13.md), and `examples/gui-bridge` (now using `std.ui` directly)
@@ -162,4 +166,4 @@ Build success alone does not certify runtime behavior or the installer. Revision
 - `internal/formatter`: comment-preserving formatting with AST comparison.
 - `internal/project`, `internal/cli`: project discovery, bundles, packages, and developer commands.
 
-Modules/imports, function values, and a buffered HTTP server were added in Rev.4; database primitives arrived in Rev.5. ORM/migrations, enums, lambdas/closures, event libraries, process/REPL support, a native backend, and a VM remain backlog items. The [editor protocol plan](docs/EDITOR-PROTOCOL.md) documents planned Format Document, Problems, and semantic services that are not enabled yet.
+Modules/imports and function values are part of the language; Rev.41 added explicit project modules and multiline formatting. `std.http` and `std.db` provide the transport and database primitives used by the optional `api` and `db` packages. Rev.43 added `std.process` and other Windows-facing library modules. ORM, migration/seed automation, standalone application binaries, other OS GUI backends, and a VM remain outside the current implementation. The [editor protocol plan](docs/EDITOR-PROTOCOL.md) records editor services that are not enabled yet.
